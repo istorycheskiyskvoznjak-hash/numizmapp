@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF--8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Numizmapp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'base-100': 'hsl(var(--b1) / <alpha-value>)',
+              'base-200': 'hsl(var(--b2) / <alpha-value>)',
+              'base-300': 'hsl(var(--b3) / <alpha-value>)',
+              'base-content': 'hsl(var(--bc) / <alpha-value>)',
+              'primary': 'hsl(var(--p) / <alpha-value>)',
+              'secondary': 'hsl(var(--s) / <alpha-value>)',
+            },
+          },
+        },
+      }
+    </script>
+    <style type="text/css">
+      html, body {
+        height: 100%;
+      }
+      html {
+        --b1: 0 0% 100%;
+        --b2: 0 0% 98%;
+        --b3: 0 0% 95%;
+        --bc: 220 20% 15%;
+        --p: 22 90% 60%;
+        --s: 220 15% 50%;
+      }
+      html.dark {
+        --b1: 220 15% 8%;
+        --b2: 220 15% 12%;
+        --b3: 220 15% 16%;
+        --bc: 220 15% 90%;
+        --p: 22 90% 60%;
+        --s: 220 15% 40%;
+      }
+      body {
+        background-color: hsl(var(--b1));
+        color: hsl(var(--bc));
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.44.4",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.23.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
