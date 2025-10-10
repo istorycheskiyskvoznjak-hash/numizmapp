@@ -10,9 +10,10 @@ interface LayoutProps {
   toggleTheme: () => void;
   children: React.ReactNode;
   onAddItemClick: () => void;
+  unreadCount: number;
 }
 
-const Layout: React.FC<LayoutProps> = ({ currentPage, setCurrentPage, theme, toggleTheme, children, onAddItemClick }) => {
+const Layout: React.FC<LayoutProps> = ({ currentPage, setCurrentPage, theme, toggleTheme, children, onAddItemClick, unreadCount }) => {
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
       <Header 
@@ -20,6 +21,7 @@ const Layout: React.FC<LayoutProps> = ({ currentPage, setCurrentPage, theme, tog
         setCurrentPage={setCurrentPage}
         theme={theme}
         toggleTheme={toggleTheme}
+        unreadCount={unreadCount}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}

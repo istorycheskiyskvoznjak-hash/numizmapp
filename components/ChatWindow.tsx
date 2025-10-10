@@ -113,7 +113,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, otherUser }) => {
                         {messages.map(msg => (
                             <div key={msg.id} className={`flex ${msg.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${msg.sender_id === currentUser.id ? 'bg-primary text-black rounded-br-lg' : 'bg-base-300 rounded-bl-lg'}`}>
-                                    <p className="text-sm">{msg.content}</p>
+                                    {/* FIX: Added break-words to prevent layout breaking */}
+                                    <p className="text-sm break-words">{msg.content}</p>
                                     <p className={`text-xs mt-1 opacity-60 ${msg.sender_id === currentUser.id ? 'text-right' : 'text-left'}`}>
                                         {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                                     </p>

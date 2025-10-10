@@ -11,6 +11,7 @@ interface HeaderProps {
   setCurrentPage: (page: Page) => void;
   theme: Theme;
   toggleTheme: () => void;
+  unreadCount: number;
 }
 
 const pageTitles: Record<Page, string> = {
@@ -31,7 +32,7 @@ const NavLink: React.FC<{
   return (
     <button
       onClick={() => setCurrentPage(page)}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 ${
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 flex items-center ${
         isActive
           ? 'bg-base-300 text-base-content'
           : 'text-base-content/70 hover:bg-base-200'
@@ -42,7 +43,7 @@ const NavLink: React.FC<{
   );
 };
 
-const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, toggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, toggleTheme, unreadCount }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -60,6 +61,11 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, tog
               {(['Feed', 'Collection', 'Wantlist', 'Messages', 'Profile'] as Page[]).map(page => (
                 <NavLink key={page} page={page} currentPage={currentPage} setCurrentPage={setCurrentPage}>
                   {pageTitles[page]}
+                  {page === 'Messages' && unreadCount > 0 && (
+                    <span className="ml-2 inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 leading-none text-center whitespace-nowrap align-middle font-bold bg-primary text-black rounded-full text-xs">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </nav>
