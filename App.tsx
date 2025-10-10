@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
+  const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -67,6 +68,12 @@ const App: React.FC = () => {
     refreshData();
   }
 
+  const handleStartConversation = (userId: string) => {
+    setInitialMessageUserId(userId);
+    setCurrentPage('Messages');
+    setSelectedItem(null); // Close modal if open
+  };
+
   const toggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
   };
@@ -85,7 +92,7 @@ const App: React.FC = () => {
       case 'Wantlist':
         return <Wantlist />;
       case 'Messages':
-        return <Messages />;
+        return <Messages session={session} initialUserId={initialMessageUserId} clearInitialUserId={() => setInitialMessageUserId(null)} />;
       case 'Profile':
         return <Profile session={session} onItemClick={handleItemClick}/>;
       default:
@@ -118,6 +125,7 @@ const App: React.FC = () => {
           session={session}
           onClose={() => setSelectedItem(null)} 
           onDeleteSuccess={handleItemDeleted}
+          onStartConversation={handleStartConversation}
         />
       )}
       {isAddItemModalOpen && (

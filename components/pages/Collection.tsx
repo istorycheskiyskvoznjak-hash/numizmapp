@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Collectible } from '../../types';
 import ItemCard from '../ItemCard';
 import { supabase } from '../../supabaseClient';
+import UploadIcon from '../icons/UploadIcon';
+import ChevronDownIcon from '../icons/ChevronDownIcon';
+import XCircleIcon from '../icons/XCircleIcon';
+import FilterIcon from '../icons/FilterIcon';
+
 
 interface CollectionProps {
   onItemClick: (item: Collectible) => void;
@@ -29,7 +34,6 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
   const [userItems, setUserItems] = useState<Collectible[]>([]);
   const [filteredItems, setFilteredItems] = useState<Collectible[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   const [isImporting, setIsImporting] = useState(false);
@@ -218,12 +222,12 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
 
   return (
     <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold">Моя коллекция</h1>
-            <div className="flex space-x-2">
-                <button onClick={() => setIsFilterVisible(!isFilterVisible)} className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm">Фильтры</button>
-                <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm disabled:opacity-50">
-                    {isImporting ? 'Импорт...' : 'Импорт CSV'}
+            <div className="flex items-center space-x-4">
+                <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm disabled:opacity-50 flex items-center gap-2">
+                    <UploadIcon className="w-4 h-4" />
+                    <span>{isImporting ? 'Импорт...' : 'Импорт CSV'}</span>
                 </button>
                 <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept=".csv" className="hidden" />
             </div>
@@ -232,11 +236,14 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
         {importSuccessMessage && <div className="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">{importSuccessMessage}</div>}
         {importError && <div className="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">{importError}</div>}
 
-        {isFilterVisible && (
-            <div className="bg-base-200 p-6 rounded-2xl mb-8 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-base-200 p-4 rounded-2xl mb-8">
+            <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <FilterIcon className="w-6 h-6 text-primary"/>
+                  <h2 className="text-xl font-bold">Фильтры</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:items-end">
                     <div>
-                        <label className="text-sm font-medium text-base-content/80 mb-2 block">Категория</label>
                         <div className="flex space-x-2 bg-base-300 p-1 rounded-full">
                             <FilterButton onClick={() => handleCategoryChange('all')} isActive={filters.category === 'all'}>Все</FilterButton>
                             <FilterButton onClick={() => handleCategoryChange('coin')} isActive={filters.category === 'coin'}>Монеты</FilterButton>
@@ -245,70 +252,70 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                         </div>
                     </div>
                     <div>
-                        <label htmlFor="query" className="text-sm font-medium text-base-content/80 mb-2 block">Поиск по названию</label>
                         <input
                             id="query"
                             name="query"
                             type="text"
                             value={filters.query}
                             onChange={handleFilterChange}
-                            placeholder="Например, 'динарий траяна'"
+                            placeholder="Поиск по названию"
                             className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                         />
                     </div>
                 </div>
-
-                <div className="text-center">
-                  <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm font-semibold text-primary hover:underline">
-                      {showAdvanced ? 'Скрыть дополнительные фильтры' : 'Показать дополнительные фильтры'}
-                  </button>
-                </div>
-
-                {showAdvanced && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-base-300 pt-4">
-                        <div>
-                            <label htmlFor="country" className="text-sm font-medium text-base-content/80 mb-2 block">Страна</label>
-                             <input
-                                id="country"
-                                name="country"
-                                type="text"
-                                value={filters.country}
-                                onChange={handleFilterChange}
-                                placeholder="Например, 'Римская империя'"
-                                className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="yearFrom" className="text-sm font-medium text-base-content/80 mb-2 block">Год от</label>
-                             <input
-                                id="yearFrom"
-                                name="yearFrom"
-                                type="number"
-                                value={filters.yearFrom}
-                                onChange={handleFilterChange}
-                                placeholder="98"
-                                className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="yearTo" className="text-sm font-medium text-base-content/80 mb-2 block">Год до</label>
-                             <input
-                                id="yearTo"
-                                name="yearTo"
-                                type="number"
-                                value={filters.yearTo}
-                                onChange={handleFilterChange}
-                                placeholder="117"
-                                className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                        </div>
-                    </div>
-                )}
-                 <div className="flex justify-end space-x-2 pt-2">
-                     <button onClick={resetFilters} className="px-4 py-2 text-sm font-semibold rounded-full bg-base-300 hover:bg-secondary transition-colors">Сбросить</button>
-                </div>
             </div>
-        )}
+
+            {showAdvanced && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-base-300 pt-4 mt-4">
+                    <div>
+                        <label htmlFor="country" className="text-sm font-medium text-base-content/80 mb-2 block">Страна</label>
+                         <input
+                            id="country"
+                            name="country"
+                            type="text"
+                            value={filters.country}
+                            onChange={handleFilterChange}
+                            placeholder="Например, 'Римская империя'"
+                            className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="yearFrom" className="text-sm font-medium text-base-content/80 mb-2 block">Год от</label>
+                         <input
+                            id="yearFrom"
+                            name="yearFrom"
+                            type="number"
+                            value={filters.yearFrom}
+                            onChange={handleFilterChange}
+                            placeholder="98"
+                            className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="yearTo" className="text-sm font-medium text-base-content/80 mb-2 block">Год до</label>
+                         <input
+                            id="yearTo"
+                            name="yearTo"
+                            type="number"
+                            value={filters.yearTo}
+                            onChange={handleFilterChange}
+                            placeholder="117"
+                            className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+                </div>
+            )}
+             <div className="flex justify-between items-center border-t border-base-300 pt-3 mt-4">
+                 <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+                     <span>{showAdvanced ? 'Скрыть доп. фильтры' : 'Показать доп. фильтры'}</span>
+                     <ChevronDownIcon className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+                 </button>
+                 <button onClick={resetFilters} className="px-4 py-2 text-sm font-semibold rounded-full bg-base-300 hover:bg-secondary transition-colors flex items-center gap-2">
+                    <XCircleIcon className="w-4 h-4" />
+                    <span>Сбросить</span>
+                 </button>
+            </div>
+        </div>
 
         <div className="mb-8 text-sm text-base-content/70">
             Найдено: {filteredItems.length}

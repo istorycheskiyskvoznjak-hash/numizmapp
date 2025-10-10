@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Theme } from '../types';
 import Header from './Header';
+import PlusIcon from './icons/PlusIcon';
 
 interface LayoutProps {
   currentPage: Page;
@@ -26,10 +27,11 @@ const Layout: React.FC<LayoutProps> = ({ currentPage, setCurrentPage, theme, tog
       <div className="fixed bottom-8 right-8">
         <button 
           onClick={onAddItemClick}
-          className="bg-primary hover:scale-110 text-black font-semibold py-3 px-5 rounded-full shadow-lg transition-transform duration-200"
+          className="bg-primary hover:scale-110 text-black font-semibold py-3 px-5 rounded-full shadow-lg transition-transform duration-200 flex items-center gap-2"
           aria-label="Добавить новый предмет"
         >
-            Добавить
+            <PlusIcon className="w-5 h-5" />
+            <span>Добавить</span>
         </button>
       </div>
     </div>

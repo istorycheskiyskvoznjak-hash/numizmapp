@@ -5,6 +5,8 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../supabaseClient';
 import { MOCK_WANTLIST } from '../../constants';
 import EditProfileModal from '../EditProfileModal';
+import EditIcon from '../icons/EditIcon';
+import QrCodeIcon from '../icons/QrCodeIcon';
 
 interface ProfileProps {
   onItemClick: (item: Collectible) => void;
@@ -97,8 +99,14 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
                             <p className="text-base-content/70">{profile.location}</p>
                         </div>
                         <div className="flex space-x-2 mt-4 sm:mt-0">
-                            <button onClick={() => setIsEditModalOpen(true)} className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors">Редактировать</button>
-                            <button className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors">QR-код</button>
+                            <button onClick={() => setIsEditModalOpen(true)} className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2">
+                                <EditIcon className="w-4 h-4" />
+                                <span>Редактировать</span>
+                            </button>
+                            <button className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2">
+                                <QrCodeIcon className="w-4 h-4" />
+                                <span>QR-код</span>
+                            </button>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">

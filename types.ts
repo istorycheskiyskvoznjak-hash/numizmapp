@@ -40,10 +40,12 @@ export interface Comment {
 }
 
 export interface WantlistItem {
-    id: number;
+    id: string;
+    user_id: string;
     name: string;
     details: string;
     description: string;
+    created_at: string;
 }
 
 export interface MessageThread {
@@ -54,4 +56,13 @@ export interface MessageThread {
         avatarUrl: string;
     };
     lastMessage: string;
+}
+
+export interface Message {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
+  is_read: boolean;
 }

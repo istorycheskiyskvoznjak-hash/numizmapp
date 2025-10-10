@@ -1,14 +1,23 @@
+
 import { WantlistItem, MessageThread } from './types';
 
 export const MOCK_WANTLIST: WantlistItem[] = [
     {
-        id: 1,
+        // FIX: Changed id from number to string to match WantlistItem type.
+        id: '1',
+        // FIX: Added missing properties `user_id` and `created_at` to match the WantlistItem type.
+        user_id: 'mock_user_1',
+        created_at: new Date().toISOString(),
         name: 'Денарий Траяна',
         details: 'Римская империя, 98-117 гг. н.э.',
         description: 'Ищу монету в хорошем состоянии (VF и выше), с четким портретом и легендой. Готов рассмотреть разные варианты реверса.'
     },
     {
-        id: 2,
+        // FIX: Changed id from number to string to match WantlistItem type.
+        id: '2',
+        // FIX: Added missing properties `user_id` and `created_at` to match the WantlistItem type.
+        user_id: 'mock_user_1',
+        created_at: new Date().toISOString(),
         name: 'Марка "Голубой Маврикий"',
         details: 'Британская колония Маврикий, 1847 г.',
         description: 'Рассмотрю покупку или обмен на редкие марки Российской империи. Интересует как "Post Office", так и "Post Paid".'

@@ -2,18 +2,27 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Collectible, Comment } from '../types';
 import { supabase } from '../supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import TrashIcon from './icons/TrashIcon';
+import SendIcon from './icons/SendIcon';
+import MessagesIcon from './icons/MessagesIcon';
 
 interface ItemDetailModalProps {
   item: Collectible;
   session: Session;
   onClose: () => void;
   onDeleteSuccess: () => void;
+  onStartConversation: (userId: string) => void;
 }
 
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess }) => {
+const INITIAL_VISIBLE_COUNT = 3;
+const FIRST_LOAD_MORE_COUNT = 4;
+const SUBSEQUENT_LOAD_MORE_COUNT = 6;
+
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [visibleCommentCount, setVisibleCommentCount] = useState(INITIAL_VISIBLE_COUNT);
   const [loadingComments, setLoadingComments] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,7 +38,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
     };
   }, []);
 
-  const fetchComments = useCallback(async () => {
+  const fetchComments = useCallback(async (showAll: boolean = false) => {
     setLoadingComments(true);
     setCommentError(null);
 
@@ -44,42 +53,43 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
     if (commentsError) {
       console.error('Error fetching comments:', commentsError.message);
       setCommentError('Не удалось загрузить комментарии.');
-      setLoadingComments(false);
-      return;
-    }
-
-    if (!commentsData || commentsData.length === 0) {
       setComments([]);
       setLoadingComments(false);
       return;
     }
 
-    const ownerIds = [...new Set(commentsData.map(c => c.owner_id))];
+    if (commentsData && commentsData.length > 0) {
+      const ownerIds = [...new Set(commentsData.map(c => c.owner_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, handle, avatar_url')
+        .in('id', ownerIds);
 
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, name, handle, avatar_url')
-      .in('id', ownerIds);
-      
-    if (!isMounted.current) return;
-
-    if (profilesError) {
-      console.error('Error fetching profiles for comments:', profilesError.message);
-      setComments(commentsData as any[] as Comment[]);
+      let combinedData: Comment[];
+      if (profilesError) {
+        console.error('Error fetching profiles for comments:', profilesError.message);
+        combinedData = commentsData.map(c => ({...c, profiles: null})) as Comment[];
+      } else {
+        const profilesMap = new Map(profilesData.map(p => [p.id, p]));
+        combinedData = commentsData.map(c => ({
+          ...c,
+          profiles: profilesMap.get(c.owner_id) || null
+        })) as Comment[];
+      }
+      setComments(combinedData);
+      if (showAll) {
+        setVisibleCommentCount(combinedData.length);
+      } else {
+        setVisibleCommentCount(INITIAL_VISIBLE_COUNT);
+      }
     } else {
-      const profilesMap = new Map(profilesData.map(p => [p.id, p]));
-      const combinedData = commentsData.map(comment => ({
-        ...comment,
-        profiles: profilesMap.get(comment.owner_id) || null,
-      }));
-      setComments(combinedData as any[] as Comment[]);
+      setComments([]);
     }
-
     setLoadingComments(false);
   }, [item.id]);
 
   useEffect(() => {
-    fetchComments();
+    fetchComments(false);
   }, [fetchComments]);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
@@ -103,7 +113,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
         setCommentError('Не удалось отправить комментарий.');
       } else {
         setNewComment('');
-        await fetchComments();
+        await fetchComments(true); // Refetch and show all comments
       }
       setIsSubmitting(false);
     }
@@ -155,6 +165,18 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
       }
     }
   };
+  
+  const handleLoadMore = () => {
+    setVisibleCommentCount(currentCount => {
+      const isFirstLoadMore = currentCount === INITIAL_VISIBLE_COUNT;
+      const numToAdd = isFirstLoadMore ? FIRST_LOAD_MORE_COUNT : SUBSEQUENT_LOAD_MORE_COUNT;
+      const newCount = currentCount + numToAdd;
+      return Math.min(newCount, comments.length);
+    });
+  };
+
+  const displayedComments = comments.slice(Math.max(0, comments.length - visibleCommentCount));
+
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -168,14 +190,23 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
             <h1 className="text-3xl font-bold">{item.name}</h1>
             <p className="text-lg text-base-content/80 mt-1">{item.country}, {item.year}</p>
             <p className="mt-6 text-base-content/90">{item.description}</p>
-            <div className="mt-8">
-              {isOwner && (
+            <div className="mt-8 flex items-center gap-4">
+              {isOwner ? (
                 <button 
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50"
                 >
-                  {isDeleting ? 'Удаление...' : 'Удалить'}
+                  <TrashIcon className="w-4 h-4" />
+                  <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => onStartConversation(item.owner_id)}
+                  className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors"
+                >
+                  <MessagesIcon className="w-4 h-4" />
+                  <span>Написать владельцу</span>
                 </button>
               )}
               {error && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
@@ -192,19 +223,28 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
               ) : comments.length === 0 ? (
                 <p className="text-sm text-base-content/60">Комментариев пока нет. Будьте первым!</p>
               ) : (
-                comments.map(comment => (
-                  <div key={comment.id} className="flex items-start space-x-3">
-                    <img src={comment.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${comment.owner_id}`} alt={comment.profiles?.name} className="w-9 h-9 rounded-full object-cover" />
-                    <div className="flex-1 bg-base-100 p-3 rounded-lg">
-                      <div className="flex items-baseline space-x-2 text-sm">
-                        <span className="font-bold">{comment.profiles?.name || 'User'}</span>
-                        <span className="text-base-content/60">@{comment.profiles?.handle || '...'}</span>
-                      </div>
-                      <p className="mt-1 text-sm text-base-content/90">{comment.text}</p>
-                      <p className="mt-2 text-xs text-base-content/50">{new Date(comment.created_at).toLocaleString('ru-RU')}</p>
+                <>
+                  {visibleCommentCount < comments.length && (
+                    <div className="text-center py-2">
+                        <button onClick={handleLoadMore} className="text-sm font-semibold text-primary hover:underline">
+                            Показать предыдущие комментарии
+                        </button>
                     </div>
-                  </div>
-                ))
+                  )}
+                  {displayedComments.map(comment => (
+                    <div key={comment.id} className="flex items-start space-x-3">
+                      <img src={comment.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${comment.owner_id}`} alt={comment.profiles?.name} className="w-9 h-9 rounded-full object-cover" />
+                      <div className="flex-1 bg-base-100 p-3 rounded-lg">
+                        <div className="flex items-baseline space-x-2 text-sm">
+                          <span className="font-bold">{comment.profiles?.name || 'User'}</span>
+                          <span className="text-base-content/60">@{comment.profiles?.handle || '...'}</span>
+                        </div>
+                        <p className="mt-1 text-sm text-base-content/90">{comment.text}</p>
+                        <p className="mt-2 text-xs text-base-content/50">{new Date(comment.created_at).toLocaleString('ru-RU')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
               {commentError && <p className="text-sm text-red-500">{commentError}</p>}
             </div>
@@ -223,8 +263,9 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                     aria-label="Ваш комментарий"
                   />
                   <div className="flex justify-end mt-2">
-                    <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary hover:scale-105 transition-transform disabled:opacity-50">
-                      {isSubmitting ? 'Отправка...' : 'Отправить'}
+                    <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
+                      <SendIcon className="w-4 h-4" />
+                      <span>{isSubmitting ? 'Отправка...' : 'Отправить'}</span>
                     </button>
                   </div>
                 </div>

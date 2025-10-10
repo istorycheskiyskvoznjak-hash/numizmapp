@@ -2,6 +2,9 @@ import React from 'react';
 import { Page, Theme } from '../types';
 import LogoIcon from './icons/LogoIcon';
 import { supabase } from '../supabaseClient';
+import SunIcon from './icons/SunIcon';
+import MoonIcon from './icons/MoonIcon';
+import LogoutIcon from './icons/LogoutIcon';
 
 interface HeaderProps {
   currentPage: Page;
@@ -62,15 +65,17 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, tog
             </nav>
           </div>
 
-          <div className="flex items-center space-x-4">
-             <button onClick={handleLogout} className="hidden md:block px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors">
-                Выйти
+          <div className="flex items-center space-x-2">
+             <button onClick={handleLogout} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors">
+                <LogoutIcon className="w-4 h-4" />
+                <span>Выйти</span>
             </button>
             <button
               onClick={toggleTheme}
-              className="px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors"
+              aria-label={theme === 'dark' ? 'Активировать светлую тему' : 'Активировать темную тему'}
             >
-              {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+              {theme === 'dark' ? <SunIcon className="w-5 h-5"/> : <MoonIcon className="w-5 h-5" />}
             </button>
           </div>
         </div>
