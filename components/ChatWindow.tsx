@@ -96,7 +96,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, otherUser }) => {
     return (
         <>
             {/* Header */}
-            <div className="p-4 border-b border-base-300 flex items-center space-x-3 flex-shrink-0">
+            <div className="p-4 border-b-2 border-base-300 flex items-center space-x-3 flex-shrink-0 bg-base-200 h-24">
                 <img src={otherUser.avatar_url} alt={otherUser.name} className="w-10 h-10 rounded-full object-cover" />
                 <div>
                     <p className="font-bold">{otherUser.name}</p>
@@ -127,7 +127,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, otherUser }) => {
             </div>
             
             {/* Input Area */}
-            <div className="p-4 border-t border-base-300 flex-shrink-0">
+            <div className="p-4 border-t-2 border-base-300 flex-shrink-0 bg-base-200">
                 <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
                     <input
                         type="text"

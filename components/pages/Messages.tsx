@@ -64,17 +64,17 @@ const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitia
     }, [profiles, searchTerm]);
 
     return (
-        <div className="flex h-[calc(100vh-8rem)] bg-base-200 rounded-2xl overflow-hidden">
+        <div className="flex h-[calc(100vh-8rem)] bg-base-200 rounded-2xl overflow-hidden border-2 border-base-300">
             {/* Left Panel: User List */}
-            <div className="w-1/3 border-r border-base-300 flex flex-col flex-shrink-0">
-                <div className="p-4 border-b border-base-300">
+            <div className="w-96 border-r-2 border-base-300 flex flex-col flex-shrink-0">
+                <div className="p-4 border-b-2 border-base-300 h-24 flex flex-col justify-center space-y-2">
                     <h1 className="text-xl font-bold">Чаты</h1>
                     <input
                         type="text"
                         placeholder="Поиск пользователей..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="mt-4 w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary"
+                        className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary"
                     />
                 </div>
                 <div className="flex-grow overflow-y-auto">
@@ -101,8 +101,8 @@ const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitia
                 </div>
             </div>
 
-            {/* Right Panel: Chat Window - FIX: Added min-w-0 to prevent flexbox overflow */}
-            <div className="w-2/3 flex flex-col min-w-0">
+            {/* Right Panel: Chat Window */}
+            <div className="flex-1 flex flex-col min-w-0 bg-base-100">
                 {selectedUser ? (
                     <ChatWindow
                         session={session}
@@ -110,10 +110,24 @@ const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitia
                         key={selectedUser.id} // Add key to force re-mount on user change
                     />
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-base-content/60 p-8">
-                        <MessagesIcon className="w-24 h-24 mb-4"/>
-                        <h2 className="text-xl font-bold">Выберите чат</h2>
-                        <p>Выберите пользователя из списка слева, чтобы начать переписку.</p>
+                    <div className="flex flex-col h-full">
+                        {/* Fake Header */}
+                        <div className="h-24 flex-shrink-0 border-b-2 border-base-300 bg-base-200"></div>
+                        
+                        {/* Empty Messages Area */}
+                        <div className="flex-grow flex flex-col items-center justify-center text-center text-base-content/60 p-8">
+                            <MessagesIcon className="w-24 h-24 mb-4"/>
+                            <h2 className="text-xl font-bold">Выберите чат</h2>
+                            <p>Выберите пользователя из списка слева, чтобы начать переписку.</p>
+                        </div>
+                        
+                        {/* Fake Input Area */}
+                        <div className="p-4 border-t-2 border-base-300 flex-shrink-0 bg-base-200">
+                            <div className="flex items-center space-x-3">
+                                <div className="flex-1 h-10 bg-base-100 border border-base-300 rounded-full"></div>
+                                <div className="w-11 h-11 rounded-full bg-primary opacity-50 flex-shrink-0"></div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
