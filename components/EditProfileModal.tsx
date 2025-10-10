@@ -26,7 +26,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
     const [name, setName] = useState(profile.name);
     const [handle, setHandle] = useState(profile.handle);
     const [location, setLocation] = useState(profile.location);
-    const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,19 +40,50 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
         };
     }, []);
 
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setAvatarFile(file);
+            setAvatarPreview(URL.createObjectURL(file));
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         try {
+            let updatedAvatarUrl = profile.avatar_url;
+
+            if (avatarFile) {
+                const fileExt = avatarFile.name.split('.').pop();
+                const filePath = `${profile.id}/avatar.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('item_images') 
+                    .upload(filePath, avatarFile, {
+                        cacheControl: '3600',
+                        upsert: true, // Overwrite existing file to save space
+                    });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('item_images')
+                    .getPublicUrl(filePath);
+                
+                // Add a timestamp to bust CDN cache if the URL remains the same
+                updatedAvatarUrl = `${publicUrl}?t=${new Date().getTime()}`;
+            }
+            
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({
                     name,
                     handle,
                     location,
-                    avatar_url: avatarUrl
+                    avatar_url: updatedAvatarUrl
                 })
                 .eq('id', profile.id);
 
@@ -75,11 +107,29 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
             <div className="bg-base-200 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <h1 className="text-2xl font-bold mb-6">Редактировать профиль</h1>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="flex flex-col items-center space-y-4">
+                        <label htmlFor="avatar-upload" className="cursor-pointer group relative">
+                            <img 
+                                src={avatarPreview || `https://i.pravatar.cc/150?u=${profile.id}`} 
+                                alt="Avatar preview" 
+                                className="w-24 h-24 rounded-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-white text-xs font-semibold">Изменить</span>
+                            </div>
+                        </label>
+                        <input 
+                            id="avatar-upload" 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp" 
+                            onChange={handleAvatarChange} 
+                            className="hidden" 
+                        />
+                    </div>
                     <InputField label="Имя" id="name" type="text" value={name} onChange={e => setName(e.target.value)} required />
                     <InputField label="Никнейм (@)" id="handle" type="text" value={handle} onChange={e => setHandle(e.target.value)} required />
                     <InputField label="Местоположение" id="location" type="text" value={location} onChange={e => setLocation(e.target.value)} />
-                    <InputField label="URL аватара" id="avatar_url" type="text" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} />
-
+                    
                     {error && <p className="text-sm text-center text-red-500">{error}</p>}
                     
                     <div className="flex justify-end space-x-4 pt-4">
