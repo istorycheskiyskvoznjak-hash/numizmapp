@@ -9,7 +9,6 @@ export interface Profile {
   location: string | null;
   avatar_url: string;
   header_image_url: string | null;
-  followers: number;
 }
 
 export interface Collectible {
@@ -25,7 +24,10 @@ export interface Collectible {
   album_id?: string | null;
   profiles?: {
     handle: string | null;
+    avatar_url: string;
   } | null;
+  grade?: 'UNC' | 'XF' | 'VF' | 'F' | null;
+  rarity?: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | null;
 }
 
 export interface Album {
@@ -34,6 +36,11 @@ export interface Album {
   name: string;
   description: string | null;
   created_at: string;
+  header_image_url: string | null;
+  cover_image_url: string | null;
+  theme_color?: 'default' | 'primary' | 'secondary' | null;
+  cover_text?: string | null;
+  is_public: boolean;
 }
 
 export interface Comment {

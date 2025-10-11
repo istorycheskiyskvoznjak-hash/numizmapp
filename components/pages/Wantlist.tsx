@@ -1,13 +1,31 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { WantlistItem } from '../../types';
 import PlusIcon from '../icons/PlusIcon';
 import WantlistFormModal from '../WantlistFormModal';
 import { supabase } from '../../supabaseClient';
 import WantlistItemCard from '../WantlistItemCard';
+import Skeleton from '../skeletons/Skeleton';
 
 // Define a client-side type to handle the animation state without affecting the database model
 type ClientWantlistItem = WantlistItem & { is_transitioning?: boolean };
+
+const WantlistItemSkeleton: React.FC = () => (
+    <div className="bg-base-200 p-4 rounded-xl flex items-center gap-6">
+        <Skeleton className="w-28 h-28 flex-shrink-0 rounded-lg" />
+        <div className="flex-grow space-y-3">
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+        </div>
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="w-10 h-10 rounded-full" />
+            <Skeleton className="w-10 h-10 rounded-full" />
+        </div>
+    </div>
+);
 
 const Wantlist: React.FC = () => {
   const [items, setItems] = useState<ClientWantlistItem[]>([]);
@@ -124,18 +142,20 @@ const Wantlist: React.FC = () => {
                 <h1 className="text-3xl font-bold">Вишлист</h1>
                 <button 
                     onClick={handleOpenAddModal}
-                    className="bg-primary hover:scale-105 text-black font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200"
+                    className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
                 >
                     <PlusIcon className="w-4 h-4" />
                     <span>Добавить в вишлист</span>
                 </button>
             </div>
             {loading ? (
-                <p>Загрузка вишлиста...</p>
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 3 }).map((_, i) => <WantlistItemSkeleton key={i} />)}
+                </div>
             ) : items.length === 0 ? (
                  <div className="text-center py-16 bg-base-200 rounded-2xl">
-                    <h2 className="text-xl font-bold">Ваш вишлист пуст</h2>
-                    <p className="text-base-content/70 mt-2">Нажмите "Добавить в вишлист", чтобы начать собирать коллекцию мечты.</p>
+                    <h2 className="text-xl font-bold">Начните с 3 целей</h2>
+                    <p className="text-base-content/70 mt-2">Отметьте 3 цели — и вам начнут приходить предложения от других коллекционеров.</p>
                 </div>
             ) : (
                 <div className="flex flex-col gap-4">

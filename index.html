@@ -11,16 +11,68 @@
         darkMode: 'class',
         theme: {
           extend: {
+            borderRadius: {
+              'sm': '0.125rem',
+              'DEFAULT': '0.25rem',
+              'md': '0.375rem',
+              'lg': '0.5rem',
+              'xl': '0.75rem',
+              '2xl': '1rem',
+              '3xl': '1.5rem',
+            },
+            boxShadow: {
+              'sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+              'DEFAULT': '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+              'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+              'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+              'xl': '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+              '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+            },
             colors: {
               'base-100': 'hsl(var(--b1) / <alpha-value>)',
               'base-200': 'hsl(var(--b2) / <alpha-value>)',
               'base-300': 'hsl(var(--b3) / <alpha-value>)',
               'base-content': 'hsl(var(--bc) / <alpha-value>)',
               'primary': 'hsl(var(--p) / <alpha-value>)',
+              'primary-focus': 'hsl(var(--pf) / <alpha-value>)',
+              'primary-content': 'hsl(var(--pc) / <alpha-value>)',
               'secondary': 'hsl(var(--s) / <alpha-value>)',
+              'secondary-focus': 'hsl(var(--sf) / <alpha-value>)',
+              'secondary-content': 'hsl(var(--sc) / <alpha-value>)',
+              'gold': '#D6B675',
+              'gold-dark': '#4A3C27',
+              'gold-medium': '#615139',
+            },
+            animation: {
+                sheen: 'sheen 1s forwards',
+            },
+            keyframes: {
+                sheen: {
+                    '100%': {
+                        transform: 'translateX(100%)',
+                    },
+                },
             },
           },
         },
+        plugins: [
+            tailwind.plugin(function({ addUtilities }) {
+                addUtilities({
+                    '.line-clamp-1': {
+                        'overflow': 'hidden',
+                        'display': '-webkit-box',
+                        '-webkit-box-orient': 'vertical',
+                        '-webkit-line-clamp': '1',
+                    },
+                    '.line-clamp-2': {
+                        'overflow': 'hidden',
+                        'display': '-webkit-box',
+                        '-webkit-box-orient': 'vertical',
+                        '-webkit-line-clamp': '2',
+                    },
+                })
+            })
+        ],
       }
     </script>
     <style type="text/css">
@@ -32,20 +84,38 @@
         --b2: 0 0% 98%;
         --b3: 0 0% 95%;
         --bc: 220 20% 15%;
-        --p: 22 90% 60%;
-        --s: 220 15% 50%;
+        --p: 38 90% 60%;
+        --pf: 38 90% 55%;
+        --pc: 220 20% 10%;
+        --s: 160 70% 45%;
+        --sf: 160 70% 40%;
+        --sc: 220 15% 100%;
       }
       html.dark {
         --b1: 220 15% 8%;
         --b2: 220 15% 12%;
         --b3: 220 15% 16%;
         --bc: 220 15% 90%;
-        --p: 22 90% 60%;
-        --s: 220 15% 40%;
+        --p: 40 90% 65%;
+        --pf: 40 90% 60%;
+        --pc: 220 20% 10%;
+        --s: 160 50% 50%;
+        --sf: 160 50% 45%;
+        --sc: 220 15% 10%;
       }
       body {
         background-color: hsl(var(--b1));
         color: hsl(var(--bc));
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
       }
     </style>
   <script type="importmap">

@@ -16,7 +16,7 @@ interface WantlistItemCardProps {
 
 const WantlistItemCard: React.FC<WantlistItemCardProps> = ({ item, onEdit, onDelete, onToggleFound, isTransitioning }) => (
     <div 
-        className={`bg-base-200 p-4 rounded-xl flex items-center gap-6 transition-all duration-500 ${item.is_found ? 'opacity-60' : ''}`}
+        className={`bg-base-200 p-4 rounded-xl flex items-start sm:items-center gap-4 flex-col sm:flex-row transition-all duration-500 ${item.is_found ? 'opacity-60' : ''}`}
         style={{ order: item.is_found && !isTransitioning ? 1 : 0 }}
     >
         {item.image_url && (
@@ -25,24 +25,28 @@ const WantlistItemCard: React.FC<WantlistItemCardProps> = ({ item, onEdit, onDel
             </div>
         )}
         <div className={`flex-grow transition-all duration-500 ${item.is_found ? 'italic line-through text-base-content/70' : ''}`}>
-            <h2 className="font-bold text-xl flex items-center gap-3">
-                <span>{item.name}</span>
-                {item.is_found && (
+             <div className="flex items-center gap-3">
+                {item.is_found ? (
                     <span className="text-xs font-bold bg-emerald-500/20 text-emerald-500 px-2.5 py-1 rounded-full no-underline">
-                        Нашёл!
+                        ✓ Найдено
+                    </span>
+                ) : (
+                    <span className="text-xs font-bold bg-amber-500/20 text-amber-500 px-2.5 py-1 rounded-full no-underline">
+                        🔥 Активно
                     </span>
                 )}
-            </h2>
-            <p className="text-sm mt-1">{item.details}</p>
+                <h2 className="font-bold text-xl">{item.name}</h2>
+            </div>
+            <p className="text-sm mt-2">{item.details}</p>
             <p className="mt-2">{item.description}</p>
         </div>
         {(onEdit || onDelete || onToggleFound) && (
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 flex-shrink-0 self-center">
+            <div className="flex flex-row space-x-2 flex-shrink-0 self-center">
                  {onToggleFound && (
                     <button 
                         onClick={onToggleFound} 
                         className={`font-semibold p-2.5 rounded-full text-sm transition-colors ${item.is_found ? 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/40' : 'bg-base-300 hover:bg-secondary text-base-content'}`} 
-                        aria-label={item.is_found ? "Отметить как ненайденный" : "Отметить как найденный"}
+                        title={item.is_found ? "Отметить как ненайденный" : "Отметить как найденный"}
                     >
                         <CheckCircleIcon className="w-4 h-4" />
                     </button>
@@ -52,7 +56,7 @@ const WantlistItemCard: React.FC<WantlistItemCardProps> = ({ item, onEdit, onDel
                         onClick={onEdit} 
                         disabled={item.is_found} 
                         className="bg-base-300 hover:bg-secondary text-base-content font-semibold p-2.5 rounded-full text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
-                        aria-label="Редактировать"
+                        title="Редактировать"
                     >
                         <EditIcon className="w-4 h-4" />
                     </button>
@@ -61,7 +65,7 @@ const WantlistItemCard: React.FC<WantlistItemCardProps> = ({ item, onEdit, onDel
                     <button 
                         onClick={onDelete} 
                         className="bg-red-500/20 hover:bg-red-500/40 text-red-500 font-semibold p-2.5 rounded-full text-sm transition-colors" 
-                        aria-label="Удалить"
+                        title="Удалить"
                     >
                         <TrashIcon className="w-4 h-4" />
                     </button>

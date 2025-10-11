@@ -12,16 +12,81 @@ import AlbumCard from '../AlbumCard';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 import WantlistMatchesModal from '../WantlistMatchesModal';
 import SearchIcon from '../icons/SearchIcon';
+import ItemCardSkeleton from '../skeletons/ItemCardSkeleton';
+import LoadMoreButton from '../LoadMoreButton';
+import QrCodeIcon from '../icons/QrCodeIcon';
+import FolderIcon from '../icons/FolderIcon';
+
+interface AlbumQRCodeModalProps {
+  album: Album;
+  onClose: () => void;
+}
+
+const AlbumQRCodeModal: React.FC<AlbumQRCodeModalProps> = ({ album, onClose }) => {
+  const albumUrl = `${window.location.origin}?albumId=${album.id}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+    albumUrl
+  )}&size=256x256&bgcolor=1A1F29&color=DCE0E8&qzone=1`;
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className="bg-base-200 rounded-2xl w-full max-w-sm p-8 relative shadow-2xl flex flex-col items-center text-center" 
+        onClick={e => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute top-4 right-4 text-base-content/50 hover:text-base-content outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full">
+            <XCircleIcon className="w-7 h-7" />
+        </button>
+        <div className="w-20 h-20 rounded-full bg-base-300 flex items-center justify-center border-4 border-base-100 overflow-hidden">
+             {album.cover_image_url ? 
+                <img src={album.cover_image_url} alt={album.name} className="w-full h-full object-cover" /> : 
+                <FolderIcon className="w-10 h-10 text-base-content/50"/>
+             }
+        </div>
+        <h2 className="text-2xl font-bold mt-4">{album.name}</h2>
+        {album.description && <p className="text-base-content/70 line-clamp-1">{album.description}</p>}
+
+        <div className="bg-base-100 p-4 rounded-lg mt-6">
+            <img src={qrCodeUrl} alt={`QR Code for album ${album.name}`} width="256" height="256" />
+        </div>
+        <p className="text-xs text-base-content/60 mt-4">
+            Отсканируйте код, чтобы поделиться этим альбомом
+        </p>
+        <input
+            type="text"
+            readOnly
+            value={albumUrl}
+            className="mt-2 w-full bg-base-300 text-center text-xs p-2 rounded-md border border-base-100 focus:outline-none"
+            onFocus={(e) => e.target.select()}
+            aria-label="Ссылка на альбом"
+        />
+      </div>
+    </div>
+  );
+};
+
 
 const GlobeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.73 9h16.54M3.73 15h16.54M9 3.73a15.8 15.8 0 0 1 6 0M9 20.27a15.8 15.8 0 0 0 6 0" />
   </svg>
 );
 
 const CalendarIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24" strokeWidth={1.5} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0h18M12 11.25h.008v.008H12v-.008Zm0 3.75h.008v.008H12v-.008Zm-3.75-3.75h.008v.008H8.25v-.008Zm0 3.75h.008v.008H8.25v-.008Zm7.5-3.75h.008v.008h-.008v-.008Zm0 3.75h.008v.008h-.008v-.008Z" />
   </svg>
 );
@@ -43,8 +108,8 @@ const FilterButton: React.FC<{
 }> = ({ onClick, isActive, children }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
-            isActive ? 'bg-primary text-black' : 'bg-base-100 hover:bg-base-300'
+        className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-300 ${
+            isActive ? 'bg-primary text-primary-content' : 'bg-base-100 hover:bg-base-300'
         }`}
     >
         {children}
@@ -86,7 +151,7 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
     };
 
     return (
-        <div className="bg-base-200 p-4 rounded-2xl mb-8">
+        <div className="bg-base-200 p-4 rounded-2xl">
             <div className="space-y-4">
                 <div className="flex items-center gap-3">
                     <FilterIcon className="w-6 h-6 text-primary"/>
@@ -131,11 +196,11 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
                 </div>
             )}
             <div className="flex justify-between items-center border-t border-base-300 pt-3 mt-4">
-                <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+                <button onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm font-semibold text-primary hover:underline flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
                     <span>{showAdvanced ? 'Скрыть доп. фильтры' : 'Показать доп. фильтры'}</span>
                     <ChevronDownIcon className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                 </button>
-                <button onClick={resetFilters} className="px-4 py-2 text-sm font-semibold rounded-full bg-base-300 hover:bg-secondary transition-colors flex items-center gap-2">
+                <button onClick={resetFilters} className="px-4 py-2 text-sm font-semibold rounded-full bg-base-300 hover:bg-secondary transition-colors flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <XCircleIcon className="w-5 h-5" />
                     <span>Сбросить</span>
                 </button>
@@ -153,6 +218,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
+  const [qrAlbum, setQrAlbum] = useState<Album | null>(null);
 
   const initialFilters = {
     category: 'all' as 'all' | 'coin' | 'stamp' | 'banknote',
@@ -167,7 +233,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
 
   const INITIAL_ALBUMS_VISIBLE = 4;
   const ALBUMS_TO_LOAD = 2;
-  const INITIAL_UNASSIGNED_VISIBLE = 16;
+  const INITIAL_UNASSIGNED_VISIBLE = 8;
   const UNASSIGNED_TO_LOAD = 4;
 
   const [visibleAlbumCount, setVisibleAlbumCount] = useState(INITIAL_ALBUMS_VISIBLE);
@@ -186,9 +252,10 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        const [collectiblesRes, albumsRes] = await Promise.all([
+        const [collectiblesRes, albumsRes, profileRes] = await Promise.all([
           supabase.from('collectibles').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('albums').select('*').eq('owner_id', user.id).order('name', { ascending: true })
+          supabase.from('albums').select('*').eq('owner_id', user.id).order('name', { ascending: true }),
+          supabase.from('profiles').select('handle, avatar_url').eq('id', user.id).single()
         ]);
 
         if (!isMounted.current) return;
@@ -197,7 +264,11 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
         if (collectiblesError) {
           console.error('Error fetching user collection:', collectiblesError.message);
         } else {
-          setUserItems((collectiblesData || []) as Collectible[]);
+            const itemsWithProfile = (collectiblesData || []).map(item => ({
+                ...item,
+                profiles: profileRes.data ? { handle: profileRes.data.handle, avatar_url: profileRes.data.avatar_url } : null
+            }));
+            setUserItems(itemsWithProfile as Collectible[]);
         }
 
         const { data: albumsData, error: albumsError } = albumsRes;
@@ -323,9 +394,11 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
   };
 
 
-  if (loading) {
-    return <div>Загрузка коллекции...</div>;
-  }
+  const LoadingState = () => (
+     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 8 }).map((_, i) => <ItemCardSkeleton key={i} />)}
+    </div>
+  );
 
   return (
     <>
@@ -333,103 +406,141 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
         <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               {selectedAlbum && (
-                  <button onClick={handleBackToAlbums} className="p-2 rounded-full bg-base-200 hover:bg-base-300 transition-colors" aria-label="Назад к альбомам">
+                  <button onClick={handleBackToAlbums} className="p-2 rounded-full bg-base-200 hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100" aria-label="Назад к альбомам">
                       <ArrowLeftIcon className="w-6 h-6" />
                   </button>
               )}
               <h1 className="text-3xl font-bold">{selectedAlbum ? selectedAlbum.name : 'Моя коллекция'}</h1>
             </div>
-            <div className="flex items-center space-x-2">
-                {!selectedAlbum && (
-                    <button onClick={handleOpenCreateAlbumModal} className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2">
-                        <FolderPlusIcon className="w-4 h-4" />
-                        <span>Создать альбом</span>
+            {selectedAlbum && (
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={() => setQrAlbum(selectedAlbum)}
+                        className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label="Поделиться альбомом"
+                    >
+                        <QrCodeIcon className="w-4 h-4" />
+                        <span>QR-код</span>
                     </button>
-                )}
-                <button
-                    onClick={() => openAddItemModal(selectedAlbum?.id)}
-                    className="bg-primary hover:scale-105 text-black font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200"
-                    aria-label="Добавить новый предмет"
-                >
-                    <PlusIcon className="w-4 h-4" />
-                    <span>Добавить</span>
-                </button>
-            </div>
+                    <button
+                        onClick={() => openAddItemModal(selectedAlbum?.id)}
+                        className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                        aria-label="Добавить новый предмет"
+                    >
+                        <PlusIcon className="w-4 h-4" />
+                        <span>Добавить предмет</span>
+                    </button>
+                </div>
+            )}
         </div>
 
         {selectedAlbum ? (
             // VIEW: ITEMS IN ALBUM
             <div>
               <FilterPanel filters={albumFilters} setFilters={setAlbumFilters} initialFilters={initialFilters} />
-              <div className="mb-8 text-sm text-base-content/70">Найдено: {itemsInSelectedAlbum.length}</div>
-              {itemsInSelectedAlbum.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
-                </div>
-              ) : (
-                <div className="text-center py-16 bg-base-200 rounded-2xl">
-                    <h2 className="text-xl font-bold">В этом альбоме пока пусто</h2>
-                    <p className="text-base-content/70 mt-2">Нажмите "Добавить", чтобы пополнить его.</p>
-                </div>
+              {loading ? <LoadingState /> : (
+                <>
+                  {itemsInSelectedAlbum.length > 0 ? (
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
+                    </div>
+                  ) : (
+                    <div className="mt-8 text-center py-16 bg-base-200 rounded-2xl">
+                        <h2 className="text-xl font-bold">В этом альбоме пока пусто</h2>
+                        <p className="text-base-content/70 mt-2">Нажмите "Добавить предмет", чтобы пополнить его.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
         ) : (
-          // VIEW: MAIN PAGE (FILTERS -> ALBUMS -> UNASSIGNED ITEMS)
+          // VIEW: MAIN PAGE
           <div>
-            <FilterPanel filters={unassignedFilters} setFilters={handleSetUnassignedFilters} initialFilters={initialFilters} />
-            
-            {albums.length > 0 && (
-                 <div className="mt-12">
-                    <h2 className="text-2xl font-bold mb-6">Альбомы</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {visibleAlbums.map(album => {
-                            const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
-                            const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
-                            return (
-                                <AlbumCard 
-                                    key={album.id}
-                                    album={album}
-                                    itemCount={itemsInAlbum.length}
-                                    coverImageUrl={latestItemWithImage?.image_url || null}
-                                    onClick={() => handleAlbumClick(album)}
-                                    onEdit={() => handleOpenEditAlbumModal(album)}
-                                    onDelete={() => handleDeleteAlbum(album)}
-                                />
-                            )
-                        })}
-                    </div>
-                    {visibleAlbumCount < albums.length && (
-                        <div className="mt-8 text-center">
-                            <button onClick={handleLoadMoreAlbums} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                Загрузить еще 2 альбома
+            {loading ? <LoadingState /> : (
+              <>
+                {albums.length > 0 && (
+                     <div className="mb-12">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold">Альбомы</h2>
+                             <button 
+                                onClick={handleOpenCreateAlbumModal} 
+                                className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                            >
+                                <FolderPlusIcon className="w-4 h-4" />
+                                <span>Создать альбом</span>
                             </button>
                         </div>
-                    )}
-                 </div>
-            )}
-           
-            {unassignedItems.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {visibleAlbums.map(album => {
+                                const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
+                                return (
+                                    <AlbumCard 
+                                        key={album.id}
+                                        album={album}
+                                        items={itemsInAlbum}
+                                        itemCount={itemsInAlbum.length}
+                                        onClick={() => handleAlbumClick(album)}
+                                        onEdit={() => handleOpenEditAlbumModal(album)}
+                                        onDelete={() => handleDeleteAlbum(album)}
+                                        isOwnProfile={true}
+                                    />
+                                )
+                            })}
+                        </div>
+                        {visibleAlbumCount < albums.length && (
+                            <div className="mt-8 text-center">
+                                <LoadMoreButton onClick={handleLoadMoreAlbums} loading={false}>
+                                    Загрузить еще {Math.min(ALBUMS_TO_LOAD, albums.length - visibleAlbumCount)}
+                                </LoadMoreButton>
+                            </div>
+                        )}
+                     </div>
+                )}
+               
                 <div className="mt-12">
-                    <h2 className="text-2xl font-bold mb-6">Без альбома</h2>
-                    <div className="mb-8 text-sm text-base-content/70">Найдено: {filteredUnassignedItems.length}</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
-                    </div>
-                    {visibleUnassignedCount < filteredUnassignedItems.length && (
-                      <div className="mt-8 flex justify-center">
-                        <button onClick={handleLoadMoreUnassigned} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                            Загрузить еще 4
-                        </button>
-                      </div>
-                    )}
-                </div>
-            )}
+                    <FilterPanel filters={unassignedFilters} setFilters={handleSetUnassignedFilters} initialFilters={initialFilters} />
 
-            {albums.length === 0 && unassignedItems.length === 0 && (
-                 <div className="text-center py-16 bg-base-200 rounded-2xl">
-                    <h2 className="text-xl font-bold">Ваша коллекция пуста</h2>
-                    <p className="text-base-content/70 mt-2">Нажмите "Добавить", чтобы начать.</p>
+                    {unassignedItems.length > 0 ? (
+                        <div className="mt-8">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold">Без альбомов</h2>
+                                <button
+                                    onClick={() => openAddItemModal(null)}
+                                    className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                                    aria-label="Добавить новый предмет"
+                                >
+                                    <PlusIcon className="w-4 h-4" />
+                                    <span>Добавить предмет</span>
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
+                            </div>
+                            {visibleUnassignedCount < filteredUnassignedItems.length && (
+                              <div className="mt-8 flex justify-center">
+                                <LoadMoreButton onClick={handleLoadMoreUnassigned} loading={false}>
+                                    Загрузить еще {Math.min(UNASSIGNED_TO_LOAD, filteredUnassignedItems.length - visibleUnassignedCount)}
+                                </LoadMoreButton>
+                              </div>
+                            )}
+                        </div>
+                    ) : ( albums.length === 0 && (
+                         <div className="text-center py-16 bg-base-200 rounded-2xl mt-8">
+                            <h2 className="text-xl font-bold">Ваша коллекция пуста</h2>
+                            <p className="text-base-content/70 mt-2">Нажмите "Добавить предмет", чтобы начать.</p>
+                            <div className="mt-6">
+                                <button
+                                    onClick={() => alert('Функция импорта из CSV скоро появится!')}
+                                    className="bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm flex items-center gap-2 mx-auto outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                    Импорт из CSV
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
+              </>
             )}
           </div>
         )}
@@ -451,6 +562,12 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
             onClose={() => setCheckingItem(null)}
             onStartConversation={onStartConversation}
         />
+      )}
+      {qrAlbum && (
+          <AlbumQRCodeModal
+              album={qrAlbum}
+              onClose={() => setQrAlbum(null)}
+          />
       )}
     </>
   );

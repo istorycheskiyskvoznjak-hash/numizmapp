@@ -42,6 +42,18 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
         };
     }, []);
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            onClose();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
+
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
@@ -186,10 +198,10 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                     {error && <p className="text-sm text-center text-red-500">{error}</p>}
                     
                     <div className="flex justify-end space-x-4 pt-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors">
+                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary">
                             Отмена
                         </button>
-                        <button type="submit" disabled={loading} className="px-6 py-2 rounded-full text-sm font-bold text-black bg-primary hover:scale-105 transition-transform disabled:opacity-50">
+                        <button type="submit" disabled={loading} className="px-6 py-2 rounded-full text-sm font-bold text-black bg-primary motion-safe:hover:scale-105 transition-transform disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus">
                             {loading ? 'Сохранение...' : 'Сохранить изменения'}
                         </button>
                     </div>

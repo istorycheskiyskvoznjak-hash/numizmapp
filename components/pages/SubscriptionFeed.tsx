@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../supabaseClient';
@@ -41,7 +42,9 @@ const typeInfo: Record<FeedItemType, { text: string; icon: React.FC<React.SVGPro
 const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClick, onViewProfile, onNavigateToFeed }) => {
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [albumDetails, setAlbumDetails] = useState<Map<string, { itemCount: number; coverImageUrl: string | null }>>(new Map());
+    // FIX: Changed the state type to Collectible[] to match the expected prop type in AlbumCard.
+    const [albumCollectibles, setAlbumCollectibles] = useState<Collectible[]>([]);
+    const [albumDetails, setAlbumDetails] = useState<Map<string, { itemCount: number }>>(new Map());
     const isMounted = useRef(true);
 
     useEffect(() => {
@@ -75,20 +78,22 @@ const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClic
 
             const albumIds = (albumsRes.data || []).map(a => a.id);
             if (albumIds.length > 0) {
-                const { data: albumCollectibles } = await supabase
+                const { data: fetchedAlbumCollectibles } = await supabase
                     .from('collectibles')
-                    .select('id, album_id, image_url')
+                    .select('id, album_id, image_url, name, category, country, year, description, owner_id, created_at')
                     .in('album_id', albumIds);
                 
+                if (isMounted.current && fetchedAlbumCollectibles) {
+                    setAlbumCollectibles(fetchedAlbumCollectibles as Collectible[]);
+                }
+                
                 const detailsMap = (albumsRes.data || []).reduce((acc, album) => {
-                    const itemsInAlbum = (albumCollectibles || []).filter(c => c.album_id === album.id);
-                    const coverItem = itemsInAlbum.find(c => c.image_url);
+                    const itemsInAlbum = (fetchedAlbumCollectibles || []).filter(c => c.album_id === album.id);
                     acc.set(album.id, {
                         itemCount: itemsInAlbum.length,
-                        coverImageUrl: coverItem ? coverItem.image_url : null
                     });
                     return acc;
-                }, new Map());
+                }, new Map<string, { itemCount: number }>());
                 setAlbumDetails(detailsMap);
             }
 
@@ -176,12 +181,15 @@ const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClic
                                     </div>
                                 </div>
                                 
-                                {item.type === 'collectible' && <ItemCard item={item.data as Collectible} onItemClick={onItemClick} />}
+                                {item.type === 'collectible' && <ItemCard item={{
+                                    ...(item.data as Collectible),
+                                    profiles: item.owner_profile ? { handle: item.owner_profile.handle, avatar_url: item.owner_profile.avatar_url } : null
+                                }} onItemClick={onItemClick} />}
                                 {item.type === 'album' && (
                                     <AlbumCard 
-                                        album={item.data as Album} 
+                                        album={item.data as Album}
+                                        items={albumCollectibles.filter(c => c.album_id === (item.data as Album).id)}
                                         itemCount={albumDetails.get(item.id)?.itemCount || 0}
-                                        coverImageUrl={albumDetails.get(item.id)?.coverImageUrl || null}
                                         onClick={() => handleAlbumCardClick(item.data as Album)}
                                     />
                                 )}

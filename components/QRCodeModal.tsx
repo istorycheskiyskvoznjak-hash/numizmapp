@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Profile } from '../types';
 import XCircleIcon from './icons/XCircleIcon';
 
@@ -13,18 +13,30 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ profile, onClose }) => {
     profileUrl
   )}&size=256x256&bgcolor=1A1F29&color=DCE0E8&qzone=1`;
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
         className="bg-base-200 rounded-2xl w-full max-w-sm p-8 relative shadow-2xl flex flex-col items-center text-center" 
         onClick={e => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-4 right-4 text-base-content/50 hover:text-base-content">
+        <button onClick={onClose} className="absolute top-4 right-4 text-base-content/50 hover:text-base-content outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full">
             <XCircleIcon className="w-7 h-7" />
         </button>
         <img 
             src={profile.avatar_url} 
-            alt={profile.name} 
+            alt={profile.name || ''}
             className="w-20 h-20 rounded-full object-cover border-4 border-base-300" 
         />
         <h2 className="text-2xl font-bold mt-4">{profile.name}</h2>

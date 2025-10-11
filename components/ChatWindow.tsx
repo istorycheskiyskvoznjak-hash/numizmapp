@@ -6,7 +6,8 @@ import SendIcon from './icons/SendIcon';
 import ArrowLeftIcon from './icons/ArrowLeftIcon';
 import CollectionItemPicker from './CollectionItemPicker';
 import AttachedItemCard from './AttachedItemCard';
-import AttachCollectibleIcon from './icons/AttachCollectibleIcon';
+import PaperclipIcon from './icons/PaperclipIcon';
+import ChevronDownIcon from './icons/ChevronDownIcon';
 
 interface ChatWindowProps {
   session: Session;
@@ -18,6 +19,30 @@ interface ChatWindowProps {
 
 const ATTACHMENT_SEPARATOR = '$$ATTACHMENT::';
 
+const isSameDay = (d1: Date, d2: Date) => {
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+};
+
+const formatDateSeparator = (date: Date) => {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (isSameDay(date, today)) {
+        return 'Сегодня';
+    }
+    if (isSameDay(date, yesterday)) {
+        return 'Вчера';
+    }
+    return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+};
+
 const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onItemClick, onViewProfile }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -25,7 +50,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
     const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [showItemPicker, setShowItemPicker] = useState(false);
+    const [showScrollButton, setShowScrollButton] = useState(false);
 
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const isMounted = useRef(true);
 
@@ -34,8 +61,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
         return () => { isMounted.current = false; };
     }, []);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView();
+    const scrollToBottom = (behavior: 'smooth' | 'auto' = 'auto') => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+    };
+
+    const handleScroll = () => {
+        const container = messagesContainerRef.current;
+        if (container) {
+            const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+            setShowScrollButton(!isScrolledToBottom);
+        }
     };
 
     const fetchMessages = useCallback(async () => {
@@ -79,24 +114,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
             }, (payload) => {
                 const newMessagePayload = payload.new as Message;
                 
-                // Ensure the message belongs to this chat
                 const isMyMessage = newMessagePayload.sender_id === session.user.id && newMessagePayload.recipient_id === recipient.id;
                 const isTheirMessage = newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id;
                 if (!isMyMessage && !isTheirMessage) return;
 
-
-                // If history was cleared, refetch everything to get the single system message
                 if (newMessagePayload.content.startsWith('[system:history_cleared_by_handle:')) {
                     fetchMessages();
                     return;
                 }
-
-                // Ignore legacy delete messages
                 if (newMessagePayload.content.startsWith('[system:deleted_by_')) {
                     return;
                 }
                 
-                // Add the new message to the state
                 setMessages(currentMessages => [...currentMessages, newMessagePayload]);
             })
             .subscribe();
@@ -135,9 +164,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 console.error("Error sending message:", error);
                 alert("Не удалось отправить сообщение.");
             } else if (newMsg) {
-                // The realtime listener will catch our own message, so we don't need to add it here.
-                // This prevents duplicate messages on the sender's screen.
-                // setMessages(currentMessages => [...currentMessages, newMsg]); 
                 setNewMessage('');
             }
             setSending(false);
@@ -171,60 +197,83 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
         <div className="flex flex-col h-full bg-base-200">
             {/* Header */}
             <div className="flex-shrink-0 flex items-center p-4 border-b border-base-300 bg-base-200">
-                <button onClick={onBack} className="md:hidden mr-2 p-2 rounded-full hover:bg-base-300">
+                <button onClick={onBack} className="md:hidden mr-2 p-2 rounded-full hover:bg-base-300 outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <ArrowLeftIcon className="w-6 h-6" />
                 </button>
-                <button onClick={() => onViewProfile(recipient)} className="flex items-center gap-3">
+                <button onClick={() => onViewProfile(recipient)} className="flex items-center gap-3 p-1 rounded-full focus-visible:ring-2 focus-visible:ring-primary outline-none">
                     <img src={recipient.avatar_url} alt={recipient.name || ''} className="w-10 h-10 rounded-full object-cover" />
                     <div>
-                        <h3 className="font-bold">{recipient.name}</h3>
-                        <p className="text-sm text-base-content/70">@{recipient.handle}</p>
+                        <h3 className="font-bold text-left">{recipient.name}</h3>
+                        <p className="text-sm text-base-content/70 text-left">@{recipient.handle}</p>
                     </div>
                 </button>
             </div>
             {/* Messages */}
-            <div className="flex-grow overflow-y-auto p-4 space-y-4">
+            <div ref={messagesContainerRef} onScroll={handleScroll} className="flex-grow overflow-y-auto p-4 space-y-4 relative">
                 {loading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : (
-                    messages.map(msg => {
-                         if (msg.content.startsWith('[system:history_cleared_by_handle:')) {
-                            const handle = msg.content.split(':')[2].slice(0, -1);
-                            const isMe = msg.sender_id === session.user.id;
-                            return (
-                                <div key={msg.id} className="text-center text-xs italic text-base-content/60 my-2">
-                                    {isMe ? 'Вы очистили историю чата.' : `Пользователь @${handle} очистил историю чата.`}
-                                </div>
-                            );
-                        }
+                    (() => {
+                        let lastDate: Date | null = null;
+                        return messages.map(msg => {
+                            const currentDate = new Date(msg.created_at);
+                            const showDateSeparator = !lastDate || !isSameDay(lastDate, currentDate);
+                            lastDate = currentDate;
 
-                        const isMe = msg.sender_id === session.user.id;
-                        const { text, item } = parseMessage(msg.content);
-                        return (
-                             <div key={msg.id} className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-xs lg:max-w-md p-3 rounded-2xl ${isMe ? 'bg-primary text-black rounded-br-lg' : 'bg-base-300 rounded-bl-lg'}`}>
-                                    {item && <AttachedItemCard item={item} onItemClick={onItemClick} />}
-                                    {text && <p className={`whitespace-pre-wrap break-words ${item ? 'mt-1' : ''}`}>{text}</p>}
-                                    <p className={`text-xs mt-1 ${isMe ? 'text-black/60' : 'text-base-content/60'} text-right`}>
-                                        {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                </div>
-                            </div>
-                        )
-                    })
+                            if (msg.content.startsWith('[system:history_cleared_by_handle:')) {
+                                const handle = msg.content.split(':')[2].slice(0, -1);
+                                const isMe = msg.sender_id === session.user.id;
+                                return (
+                                    <div key={msg.id} className="text-center text-xs italic text-base-content/60 my-2">
+                                        {isMe ? 'Вы очистили историю чата.' : `Пользователь @${handle} очистил историю чата.`}
+                                    </div>
+                                );
+                            }
+
+                            const isMe = msg.sender_id === session.user.id;
+                            const { text, item } = parseMessage(msg.content);
+
+                            return (
+                                <React.Fragment key={msg.id}>
+                                    {showDateSeparator && (
+                                        <div className="text-center text-xs font-semibold text-base-content/60 my-4 sticky top-2 z-10">
+                                           <span className="bg-base-300 px-3 py-1 rounded-full">{formatDateSeparator(currentDate)}</span>
+                                        </div>
+                                    )}
+                                     <div className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-xs lg:max-w-md p-3 shadow-md ${isMe ? 'bg-primary text-primary-content rounded-3xl rounded-br-lg' : 'bg-base-300 rounded-2xl rounded-bl-lg'}`}>
+                                            {item && <AttachedItemCard item={item} onItemClick={onItemClick} />}
+                                            {text && <p className={`whitespace-pre-wrap break-words ${item ? 'mt-1' : ''}`}>{text}</p>}
+                                            <p className={`text-xs mt-1 ${isMe ? 'text-primary-content/60' : 'text-base-content/60'} text-right`}>
+                                                {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </React.Fragment>
+                            )
+                        })
+                    })()
                 )}
                 <div ref={messagesEndRef} />
+                 {showScrollButton && (
+                    <button
+                        onClick={() => scrollToBottom('smooth')}
+                        className="absolute bottom-4 right-4 z-10 w-10 h-10 bg-base-300 rounded-full flex items-center justify-center shadow-lg hover:bg-secondary outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                        <ChevronDownIcon className="w-6 h-6" />
+                    </button>
+                )}
             </div>
 
             {/* Input */}
             <div className="flex-shrink-0 p-4 border-t border-base-300 bg-base-200 relative">
                 {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
                 <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
-                    <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
-                        <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
+                    <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label="Прикрепить предмет">
+                        <PaperclipIcon className="w-6 h-6 text-base-content/80"/>
                     </button>
                     <textarea
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Напишите сообщение..."
+                        placeholder="Предложите обмен или задайте вопрос…"
                         className="w-full px-4 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition resize-none"
                         rows={1}
                         onKeyDown={(e) => {
@@ -235,8 +284,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                         }}
                         disabled={sending}
                     />
-                    <button type="submit" disabled={sending || !newMessage.trim()} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
-                        <SendIcon className="w-5 h-5 text-black"/>
+                    <button type="submit" disabled={sending || !newMessage.trim()} className="p-3 rounded-full bg-primary motion-safe:hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus">
+                        <SendIcon className="w-5 h-5 text-primary-content"/>
                     </button>
                 </form>
             </div>

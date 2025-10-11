@@ -10,11 +10,15 @@ import QRCodeModal from '../QRCodeModal';
 import AlbumCard from '../AlbumCard';
 import RectangleGroupIcon from '../icons/RectangleGroupIcon';
 import HeartIcon from '../icons/HeartIcon';
-import MapPinIcon from '../icons/MapPinIcon';
+import MapPinIcon from './../icons/MapPinIcon';
 import UserPlusIcon from './../icons/UserPlusIcon';
 import UserMinusIcon from './../icons/UserMinusIcon';
 import MessagesIcon from './../icons/MessagesIcon';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
+import WantlistItemCard from '../WantlistItemCard';
+import WantlistFormModal from '../WantlistFormModal';
+import PlusIcon from '../icons/PlusIcon';
+
 
 interface ProfileProps {
   session: Session;
@@ -29,343 +33,437 @@ interface ProfileProps {
   onBack?: () => void;
 }
 
-interface ProfileStatProps {
-    value: number;
-    label: string;
-    hasHeaderImage: boolean;
-}
-const ProfileStat: React.FC<ProfileStatProps> = ({ value, label, hasHeaderImage }) => (
-    <div className={`p-4 rounded-xl text-center transition-all duration-300 ${hasHeaderImage ? 'bg-black/25 border border-white/10 backdrop-blur-md' : 'bg-base-300'}`}>
-        <p className="text-2xl font-bold">{value}</p>
+const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
+    <div className="bg-black/40 backdrop-blur-md rounded-xl p-4 text-center text-white border border-white/10 shadow-lg">
+        <p className="text-3xl font-bold">{value}</p>
         <p className="text-sm opacity-80">{label}</p>
     </div>
 );
+
+const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; icon: React.ReactNode; className?: string }> = ({ onClick, children, icon, className }) => (
+    <button
+        onClick={onClick}
+        className={`w-full md:w-auto flex items-center justify-center gap-2 bg-black/40 backdrop-blur-md rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/10 shadow-lg hover:bg-black/60 transition-colors ${className}`}
+    >
+        {icon}
+        <span>{children}</span>
+    </button>
+);
+
+
+type ClientWantlistItem = WantlistItem & { is_transitioning?: boolean };
 
 
 const Profile: React.FC<ProfileProps> = ({ 
     session, 
     profileId, 
-    onItemClick, 
-    onViewAlbum, 
-    onViewCollection, 
+    onItemClick,
+    onViewAlbum,
+    onViewCollection,
     onViewWantlist,
     onStartConversation,
-    onBack
+    onBack,
 }) => {
     const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [collection, setCollection] = useState<Collectible[]>([]);
+    const [collectibles, setCollectibles] = useState<Collectible[]>([]);
     const [albums, setAlbums] = useState<Album[]>([]);
-    const [wantlistCount, setWantlistCount] = useState(0);
-    const [wantlistItems, setWantlistItems] = useState<WantlistItem[]>([]);
-    const [followersCount, setFollowersCount] = useState(0);
+    const [wantlist, setWantlist] = useState<ClientWantlistItem[]>([]);
+    const [followers, setFollowers] = useState(0);
+    const [following, setFollowing] = useState(0);
+    const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-    const [isFollowing, setIsFollowing] = useState(false);
-    const [loadingFollow, setLoadingFollow] = useState(false);
+    const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
+    const [view, setView] = useState<'collection' | 'wantlist'>('collection');
+    const [isWantlistModalOpen, setIsWantlistModalOpen] = useState(false);
+    const [editingWantlistItem, setEditingWantlistItem] = useState<WantlistItem | null>(null);
+
+
     const isMounted = useRef(true);
 
-    const userIdToFetch = profileId || session.user.id;
-    const isOwnProfile = userIdToFetch === session.user.id;
+    const isOwnProfile = !profileId || profileId === session.user.id;
 
     useEffect(() => {
         isMounted.current = true;
-        return () => {
-            isMounted.current = false;
-        };
+        return () => { isMounted.current = false; };
     }, []);
 
     const fetchProfileData = useCallback(async () => {
+        setLoading(true);
+        const userId = profileId || session.user.id;
+        
         const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', userIdToFetch)
+            .eq('id', userId)
             .single();
 
         if (profileError) {
-            console.error('Error fetching profile:', profileError.message);
-            if (isMounted.current) setLoading(false);
+            console.error('Error fetching profile:', profileError);
+            setLoading(false);
             return;
         }
 
-        const [collectionRes, albumsRes, wantlistCountRes, wantlistItemsRes, followersRes] = await Promise.all([
-            supabase.from('collectibles').select('*').eq('owner_id', userIdToFetch),
-            supabase.from('albums').select('*').eq('owner_id', userIdToFetch).order('name', { ascending: true }),
-            supabase.from('wantlist').select('id', { count: 'exact', head: true }).eq('user_id', userIdToFetch),
-            supabase.from('wantlist').select('*').eq('user_id', userIdToFetch).order('created_at', { ascending: false }).limit(4),
-            supabase.from('subscriptions').select('follower_id', { count: 'exact', head: true }).eq('following_id', userIdToFetch)
+        if (isMounted.current) {
+            setProfile(profileData as ProfileData);
+        }
+        
+        const { count: followerCount } = await supabase
+            .from('subscriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('following_id', userId);
+
+        const { count: followingCount } = await supabase
+            .from('subscriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('follower_id', userId);
+        
+        if (!isOwnProfile) {
+            const { data: followingCheck, error: followingError } = await supabase
+                .from('subscriptions')
+                .select('*')
+                .eq('follower_id', session.user.id)
+                .eq('following_id', userId)
+                .maybeSingle();
+            if (isMounted.current) setIsFollowing(!!followingCheck);
+        }
+
+        if (isMounted.current) {
+            setFollowers(followerCount || 0);
+            setFollowing(followingCount || 0);
+        }
+
+        const [collectiblesRes, albumsRes, wantlistRes] = await Promise.all([
+            supabase.from('collectibles').select('*').eq('owner_id', userId).order('created_at', { ascending: false }),
+            // For public profiles, only fetch public albums. For own profile, fetch all.
+            isOwnProfile
+                ? supabase.from('albums').select('*').eq('owner_id', userId).order('name', { ascending: true })
+                : supabase.from('albums').select('*').eq('owner_id', userId).eq('is_public', true).order('name', { ascending: true }),
+            supabase.from('wantlist').select('*').eq('user_id', userId).order('created_at', { ascending: false })
         ]);
 
-        if (isMounted.current) {
-            setProfile(profileData);
-            
-            const itemsWithProfile = (collectionRes.data || []).map(item => ({
-                ...item,
-                profiles: profileData ? { handle: profileData.handle } : null
-            }));
-            setCollection(itemsWithProfile as Collectible[]);
+        if (!isMounted.current) return;
+        
+        const { data: albumsData, error: albumsError } = albumsRes;
+        if (albumsError) console.error("Error fetching albums", albumsError);
+        else setAlbums(albumsData as Album[]);
 
-            setAlbums((albumsRes.data || []) as Album[]);
-            setWantlistCount(wantlistCountRes.count || 0);
-            setWantlistItems(wantlistItemsRes.data || []);
-            setFollowersCount(followersRes.count || 0);
-            
-            setLoading(false);
-        }
-    }, [userIdToFetch]);
-
-     useEffect(() => {
-        const checkFollowingStatus = async () => {
-            if (isOwnProfile) return;
-            setLoadingFollow(true);
-            const { data, error } = await supabase
-                .from('subscriptions')
-                .select('follower_id')
-                .eq('follower_id', session.user.id)
-                .eq('following_id', userIdToFetch)
-                .single();
-
-            if (isMounted.current) {
-                if (error && error.code !== 'PGRST116') console.error("Error checking follow status:", error);
-                setIsFollowing(!!data);
-                setLoadingFollow(false);
+        const { data: collectiblesData, error: collectiblesError } = collectiblesRes;
+        if (collectiblesError) console.error("Error fetching collectibles", collectiblesError);
+        else {
+            if (isOwnProfile) {
+                setCollectibles(collectiblesData as Collectible[]);
+            } else {
+                // For public view, only show items that are in one of the public albums
+                const publicAlbumIds = (albumsData || []).map(a => a.id);
+                const publicCollectibles = (collectiblesData || []).filter(c => c.album_id && publicAlbumIds.includes(c.album_id));
+                setCollectibles(publicCollectibles as Collectible[]);
             }
-        };
-        checkFollowingStatus();
-    }, [userIdToFetch, session.user.id, isOwnProfile]);
+        }
+
+        const { data: wantlistData, error: wantlistError } = wantlistRes;
+        if (wantlistError) console.error("Error fetching wantlist", wantlistError);
+        else setWantlist(wantlistData as ClientWantlistItem[]);
+        
+        setLoading(false);
+    }, [profileId, session.user.id, isOwnProfile]);
 
     useEffect(() => {
-        setLoading(true);
         fetchProfileData();
     }, [fetchProfileData]);
-    
-    const handleProfileUpdateSuccess = () => {
-        setIsEditModalOpen(false);
-        fetchProfileData();
-    };
 
     const handleFollow = async () => {
-        if (isOwnProfile || !session) return;
-        setLoadingFollow(true);
+        if (isOwnProfile || !profile) return;
+        setIsFollowing(true);
+        setFollowers(f => f + 1);
         const { error } = await supabase
             .from('subscriptions')
-            .insert({ follower_id: session.user.id, following_id: userIdToFetch });
-        
-        if (isMounted.current) {
-            if (error) alert("Не удалось подписаться.");
-            else {
-                setIsFollowing(true);
-                setFollowersCount(c => c + 1);
-            }
-            setLoadingFollow(false);
+            .insert({ follower_id: session.user.id, following_id: profile.id });
+        if (error) {
+            console.error("Error following:", error);
+            setIsFollowing(false);
+            setFollowers(f => f - 1);
         }
     };
 
     const handleUnfollow = async () => {
-        if (isOwnProfile || !session) return;
-        setLoadingFollow(true);
+        if (isOwnProfile || !profile) return;
+        setIsFollowing(false);
+        setFollowers(f => f - 1);
         const { error } = await supabase
             .from('subscriptions')
             .delete()
-            .match({ follower_id: session.user.id, following_id: userIdToFetch });
+            .eq('follower_id', session.user.id)
+            .eq('following_id', profile.id);
+        if (error) {
+            console.error("Error unfollowing:", error);
+            setIsFollowing(true);
+            setFollowers(f => f + 1);
+        }
+    };
+    
+    // Stubs for album edit/delete logic, assuming they open a modal or call Collection page functions
+    const handleEditAlbum = (album: Album) => {
+        alert(`Editing album: ${album.name}. This would open the edit album modal.`);
+        // To implement fully: setEditingAlbum(album); setIsCreateAlbumModalOpen(true);
+    };
 
-        if (isMounted.current) {
-            if (error) alert("Не удалось отписаться.");
-            else {
-                setIsFollowing(false);
-                setFollowersCount(c => c - 1);
+    const handleDeleteAlbum = (album: Album) => {
+        alert(`Deleting album: ${album.name}. This would trigger a confirmation.`);
+        // To implement fully: add confirmation and Supabase call
+    };
+
+    const handleWantlistModalSuccess = () => {
+        setIsWantlistModalOpen(false);
+        fetchProfileData();
+    };
+
+    const handleOpenAddWantlistModal = () => {
+        setEditingWantlistItem(null);
+        setIsWantlistModalOpen(true);
+    };
+
+    const handleOpenEditWantlistModal = (item: WantlistItem) => {
+        setEditingWantlistItem(item);
+        setIsWantlistModalOpen(true);
+    };
+
+    const handleDeleteWantlistItem = async (itemId: string) => {
+        const confirmed = window.confirm("Вы уверены, что хотите удалить этот элемент из вишлиста?");
+        if (confirmed) {
+            const { error } = await supabase
+                .from('wantlist')
+                .delete()
+                .eq('id', itemId);
+            
+            if (error) {
+                console.error('Error deleting wantlist item:', error);
+                alert("Не удалось удалить элемент.");
+            } else {
+                fetchProfileData();
             }
-            setLoadingFollow(false);
         }
     };
 
+    const handleToggleWantlistFound = (itemId: string, currentStatus: boolean) => {
+        setWantlist(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId
+              ? { ...item, is_found: !currentStatus, is_transitioning: true }
+              : item
+          )
+        );
+
+        setTimeout(() => {
+          setWantlist(prevItems =>
+            prevItems.map(item =>
+              item.id === itemId ? { ...item, is_transitioning: false } : item
+            )
+          );
+        }, 800);
+
+        const updateDatabase = async () => {
+          const { error } = await supabase
+            .from('wantlist')
+            .update({ is_found: !currentStatus })
+            .eq('id', itemId);
+
+          if (error) {
+            console.error('Error toggling found status:', error);
+            alert('Не удалось обновить статус.');
+            setWantlist(prevItems =>
+              prevItems.map(item =>
+                item.id === itemId
+                  ? { ...item, is_found: currentStatus, is_transitioning: false }
+                  : item
+              )
+            );
+          }
+        };
+
+        updateDatabase();
+    };
 
     if (loading) {
-        return <div className="p-8 text-center">Загрузка профиля...</div>;
+        return <div>Загрузка профиля...</div>;
     }
 
     if (!profile) {
-        return <div className="p-8 text-center">Не удалось загрузить профиль.</div>
+        return <div>Профиль не найден.</div>;
     }
-    
-    const showcaseAlbums = albums.slice(0, 6);
-    const unassignedItems = collection.filter(item => !item.album_id);
-    const showcaseItems = unassignedItems.slice(0, 10);
+
+    const unassignedItems = collectibles.filter(c => !c.album_id);
 
     return (
         <>
-            {!isOwnProfile && onBack && (
-                <div className="mb-6">
-                    <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors">
-                        <ArrowLeftIcon className="w-5 h-5" />
-                        <span>Назад</span>
-                    </button>
-                </div>
-            )}
-            <div className="space-y-12">
-                <div className="bg-base-200 p-6 rounded-2xl relative overflow-hidden">
-                    {profile.header_image_url && (
-                        <img 
-                            src={profile.header_image_url} 
-                            alt="Profile header" 
-                            className="absolute inset-0 w-full h-full object-cover" 
-                        />
-                    )}
-                    <div className={`absolute inset-0 ${profile.header_image_url ? 'bg-black/60 backdrop-blur-sm' : ''}`}></div>
+            {/* Header Section */}
+            <div className="relative rounded-2xl overflow-hidden shadow-lg mb-8">
+                {/* Background */}
+                {profile.header_image_url ? (
+                    <img src={profile.header_image_url} alt="Header" className="absolute inset-0 w-full h-full object-cover filter blur-sm scale-105" />
+                ) : (
+                    <div className="absolute inset-0 w-full h-full bg-base-300"></div>
+                )}
+                <div className="absolute inset-0 bg-black/50"></div>
 
-                    <div className={`relative ${profile.header_image_url ? 'text-white' : ''}`}>
-                        <div className="flex flex-col md:flex-row items-start gap-6">
-                            <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className={`w-24 h-24 rounded-lg object-cover flex-shrink-0 border-4 shadow-lg ${profile.header_image_url ? 'border-white/20' : 'border-base-content/10'}`} />
-                            
-                            <div className="flex-grow">
-                                <div className="flex items-baseline flex-wrap">
-                                    <h1 className="text-3xl font-bold">{profile.name || 'Безымянный'}</h1>
-                                    <p className={`ml-2 ${profile.header_image_url ? 'text-white/70' : 'text-base-content/60'}`}>@{profile.handle || 'user'}</p>
+                {/* Back Button */}
+                {onBack && (
+                    <button onClick={onBack} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-black/30 backdrop-blur-md hover:bg-black/50 transition-colors" aria-label="Назад">
+                        <ArrowLeftIcon className="w-6 h-6 text-white" />
+                    </button>
+                )}
+
+                {/* Content */}
+                <div className="relative p-6 md:p-8 space-y-6 text-white">
+                    {/* Top section: User Info + Actions */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        {/* User Info */}
+                        <div className="flex items-center gap-4">
+                            <img src={profile.avatar_url} alt={profile.name || ''} className="w-24 h-24 rounded-full object-cover border-4 border-white/20 shadow-lg flex-shrink-0" />
+                            <div>
+                                <div className="flex items-baseline gap-3">
+                                    <h1 className="text-3xl font-bold" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{profile.name}</h1>
+                                    <p className="text-lg text-white/80">@{profile.handle}</p>
                                 </div>
-                                 <p className={`mt-2 flex items-center gap-1.5 text-sm ${profile.header_image_url ? 'text-white/80' : 'text-base-content/70'}`}>
-                                    <MapPinIcon className="w-4 h-4" />
-                                    <span>{profile.location || 'Местоположение не указано'}</span>
-                                </p>
-                            </div>
-                            
-                            <div className="flex flex-row items-center gap-3 ml-auto flex-shrink-0 self-start mt-4 md:mt-0">
-                                {isOwnProfile ? (
-                                    <>
-                                        <button onClick={() => setIsEditModalOpen(true)} className={`${profile.header_image_url ? 'bg-black/25 text-white hover:bg-black/40 border border-white/10 hover:border-white/20 backdrop-blur-md' : 'bg-base-300 hover:bg-base-content/20 text-base-content'} font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 flex items-center gap-2 justify-center`}>
-                                            <EditIcon className="w-4 h-4" />
-                                            <span>Редактировать</span>
-                                        </button>
-                                        <button onClick={() => setIsQrModalOpen(true)} className={`${profile.header_image_url ? 'bg-black/25 text-white hover:bg-black/40 border border-white/10 hover:border-white/20 backdrop-blur-md' : 'bg-base-300 hover:bg-base-content/20 text-base-content'} font-semibold py-2 px-4 rounded-full text-sm transition-all duration-300 flex items-center gap-2 justify-center`}>
-                                            <QrCodeIcon className="w-4 h-4" />
-                                            <span>QR-код</span>
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button 
-                                            onClick={isFollowing ? handleUnfollow : handleFollow}
-                                            disabled={loadingFollow}
-                                            className={`font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2 disabled:opacity-50 ${
-                                                isFollowing 
-                                                ? `${profile.header_image_url ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-base-300 text-base-content hover:bg-base-content/20'}`
-                                                : 'bg-primary/80 text-black hover:bg-primary'
-                                            }`}
-                                        >
-                                            {isFollowing ? <UserMinusIcon className="w-4 h-4" /> : <UserPlusIcon className="w-4 h-4" />}
-                                            <span>{loadingFollow ? '...' : (isFollowing ? 'Отписаться' : 'Подписаться')}</span>
-                                        </button>
-                                        <button 
-                                            onClick={() => onStartConversation?.(userIdToFetch)}
-                                            className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2"
-                                        >
-                                            <MessagesIcon className="w-4 h-4" />
-                                            <span>Написать</span>
-                                        </button>
-                                    </>
+                                {profile.location && (
+                                    <p className="text-sm text-white/70 flex items-center gap-2 pt-1">
+                                        <MapPinIcon className="w-4 h-4" />
+                                        {profile.location}
+                                    </p>
                                 )}
                             </div>
                         </div>
-                         <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <ProfileStat value={collection.length} label="Предметы" hasHeaderImage={!!profile.header_image_url} />
-                            <ProfileStat value={albums.length} label="Альбомы" hasHeaderImage={!!profile.header_image_url} />
-                            <ProfileStat value={wantlistCount} label="В вишлисте" hasHeaderImage={!!profile.header_image_url} />
-                            <ProfileStat value={followersCount} label="Подписчики" hasHeaderImage={!!profile.header_image_url} />
+
+                        {/* Action Buttons */}
+                        <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
+                            {isOwnProfile ? (
+                                <>
+                                    <ActionButton onClick={() => setIsEditModalOpen(true)} icon={<EditIcon className="w-4 h-4" />}>Редактировать</ActionButton>
+                                    <ActionButton onClick={() => setIsQrModalOpen(true)} icon={<QrCodeIcon className="w-4 h-4" />}>QR-код</ActionButton>
+                                </>
+                            ) : (
+                                <>
+                                    {isFollowing ? (
+                                        <ActionButton onClick={handleUnfollow} icon={<UserMinusIcon className="w-4 h-4" />}>Отписаться</ActionButton>
+                                    ) : (
+                                        <ActionButton onClick={handleFollow} icon={<UserPlusIcon className="w-4 h-4" />}>Подписаться</ActionButton>
+                                    )}
+                                    <ActionButton onClick={() => onStartConversation?.(profile.id)} icon={<MessagesIcon className="w-4 h-4" />}>Написать</ActionButton>
+                                </>
+                            )}
                         </div>
                     </div>
+
+                    {/* Stats Section */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Stat value={collectibles.length} label="Предметы" />
+                        <Stat value={following} label="Подписки" />
+                        <Stat value={wantlist.length} label="В вишлисте" />
+                        <Stat value={followers} label="Подписчики" />
+                    </div>
                 </div>
-                
-                <div className="space-y-12">
-                    {showcaseAlbums.length > 0 && (
-                        <div id="profile-albums-section">
-                            <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                                <RectangleGroupIcon className="w-6 h-6 text-base-content/70" />
-                                <span>Альбомы</span>
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {showcaseAlbums.map(album => {
-                                    const itemsInAlbum = collection.filter(item => item.album_id === album.id);
-                                    const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
-                                    return (
-                                        <AlbumCard 
-                                            key={album.id}
-                                            album={album}
-                                            itemCount={itemsInAlbum.length}
-                                            coverImageUrl={latestItemWithImage?.image_url || null}
-                                            onClick={() => isOwnProfile && onViewAlbum(album.id)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                             {albums.length > 6 && isOwnProfile && (
-                                <div className="mt-8 text-center">
-                                    <button onClick={onViewCollection} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                        Посмотреть все альбомы
-                                    </button>
+            </div>
+            
+            {/* Content Tabs */}
+            <div className="mt-8 flex justify-center border-b border-base-300">
+                <button onClick={() => setView('collection')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'collection' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><RectangleGroupIcon className="w-5 h-5 inline-block mr-2" />Коллекция</button>
+                <button onClick={() => setView('wantlist')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'wantlist' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><HeartIcon className="w-5 h-5 inline-block mr-2"/>Вишлист</button>
+            </div>
+            
+            {view === 'collection' && (
+                <div className="mt-8">
+                    {isOwnProfile || albums.length > 0 ? (
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-bold mb-4">{isOwnProfile ? 'Мои альбомы' : 'Альбомы'}</h2>
+                            {albums.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {albums.map(album => {
+                                        const itemsInAlbum = collectibles.filter(c => c.album_id === album.id);
+                                        return (
+                                            <AlbumCard
+                                                key={album.id}
+                                                album={album}
+                                                items={itemsInAlbum}
+                                                itemCount={itemsInAlbum.length}
+                                                onClick={() => onViewAlbum(album.id)}
+                                                onEdit={isOwnProfile ? () => handleEditAlbum(album) : undefined}
+                                                onDelete={isOwnProfile ? () => handleDeleteAlbum(album) : undefined}
+                                                isOwnProfile={isOwnProfile}
+                                            />
+                                        );
+                                    })}
                                 </div>
+                            ) : (
+                                isOwnProfile && <p className="text-base-content/70">У вас пока нет альбомов.</p>
                             )}
                         </div>
-                    )}
-
-                    {wantlistItems.length > 0 && (
-                            <div id="profile-wantlist-section">
-                            <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                                <HeartIcon className="w-6 h-6 text-base-content/70" />
-                                <span>Недавнее в вишлисте</span>
-                            </h3>
-                            <div className="space-y-2">
-                                {wantlistItems.map(item => (
-                                    <div key={item.id} className="bg-base-200 p-4 rounded-lg font-semibold">
-                                        {item.name}
-                                    </div>
-                                ))}
+                    ) : null}
+                    
+                    {isOwnProfile && unassignedItems.length > 0 && (
+                        <div className="mt-12">
+                            <h2 className="text-2xl font-bold mb-4">Без альбомов</h2>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {unassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} />)}
                             </div>
-                            {wantlistCount > 4 && isOwnProfile && (
-                                <div className="mt-8 text-center">
-                                    <button onClick={onViewWantlist} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                        Перейти к вишлисту
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {showcaseItems.length > 0 && (
-                        <div id="profile-items-section">
-                            <h3 className="text-2xl font-bold mb-6">{showcaseAlbums.length > 0 ? 'Предметы без альбома' : 'Недавние предметы'}</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                                {showcaseItems.map(item => (
-                                    <ItemCard key={item.id} item={item} onItemClick={onItemClick} />
-                                ))}
-                            </div>
-                                {unassignedItems.length > 10 && isOwnProfile && (
-                                <div className="mt-8 text-center">
-                                    <button onClick={onViewCollection} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                        Перейти ко всей коллекции
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     )}
                     
-                    {showcaseAlbums.length === 0 && showcaseItems.length === 0 && wantlistItems.length === 0 && (
+                     {collectibles.length === 0 && (
                         <div className="text-center py-16 bg-base-200 rounded-2xl">
-                            <h2 className="text-xl font-bold">Витрина пуста</h2>
-                            <p className="text-base-content/70 mt-2">Предметы из коллекции и альбомы пользователя будут отображаться здесь.</p>
+                            <h2 className="text-xl font-bold">{isOwnProfile ? 'Ваша коллекция пуста' : 'Коллекция пользователя пуста'}</h2>
+                            {isOwnProfile && <p className="text-base-content/70 mt-2">Добавьте свой первый предмет, чтобы он появился здесь.</p>}
                         </div>
                     )}
                 </div>
-            </div>
-            {isOwnProfile && isEditModalOpen && (
-                <EditProfileModal 
-                    profile={profile}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSuccess={handleProfileUpdateSuccess}
-                />
             )}
-            {isOwnProfile && isQrModalOpen && (
-                <QRCodeModal
-                    profile={profile}
-                    onClose={() => setIsQrModalOpen(false)}
+            
+            {view === 'wantlist' && (
+                <div className="mt-8">
+                     {isOwnProfile && (
+                        <div className="flex justify-end mb-4">
+                            <button 
+                                onClick={handleOpenAddWantlistModal}
+                                className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                            >
+                                <PlusIcon className="w-4 h-4" />
+                                <span>Добавить в вишлист</span>
+                            </button>
+                        </div>
+                    )}
+                    {wantlist.length > 0 ? (
+                        <div className="flex flex-col gap-4">
+                           {wantlist.map(item => (
+                                <WantlistItemCard 
+                                    key={item.id} 
+                                    item={item}
+                                    isTransitioning={item.is_transitioning}
+                                    onEdit={isOwnProfile ? () => handleOpenEditWantlistModal(item) : undefined}
+                                    onDelete={isOwnProfile ? () => handleDeleteWantlistItem(item.id) : undefined}
+                                    onToggleFound={isOwnProfile ? () => handleToggleWantlistFound(item.id, !!item.is_found) : undefined}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 bg-base-200 rounded-2xl">
+                            <h2 className="text-xl font-bold">{isOwnProfile ? 'Ваш вишлист пуст' : 'Вишлист пользователя пуст'}</h2>
+                             {isOwnProfile && <p className="text-base-content/70 mt-2">Добавьте предметы, которые вы ищете.</p>}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {isEditModalOpen && (
+                <EditProfileModal profile={profile} onClose={() => setIsEditModalOpen(false)} onSuccess={() => { setIsEditModalOpen(false); fetchProfileData(); }} />
+            )}
+            {isQrModalOpen && (
+                <QRCodeModal profile={profile} onClose={() => setIsQrModalOpen(false)} />
+            )}
+             {isWantlistModalOpen && (
+                <WantlistFormModal
+                    itemToEdit={editingWantlistItem}
+                    onClose={() => setIsWantlistModalOpen(false)}
+                    onSuccess={handleWantlistModalSuccess}
                 />
             )}
         </>

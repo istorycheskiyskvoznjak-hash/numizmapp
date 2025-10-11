@@ -6,6 +6,7 @@ import TrashIcon from './icons/TrashIcon';
 import SendIcon from './icons/SendIcon';
 import MessagesIcon from './icons/MessagesIcon';
 import ImageIcon from './icons/ImageIcon';
+import EditIcon from './icons/EditIcon';
 
 interface ItemDetailModalProps {
   item: Collectible;
@@ -14,13 +15,14 @@ interface ItemDetailModalProps {
   onDeleteSuccess: () => void;
   onStartConversation: (userId: string) => void;
   onItemUpdate: () => void;
+  onEditItem: (item: Collectible) => void;
 }
 
 const INITIAL_VISIBLE_COUNT = 3;
 const FIRST_LOAD_MORE_COUNT = 4;
 const SUBSEQUENT_LOAD_MORE_COUNT = 6;
 
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate }) => {
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate, onEditItem }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -43,6 +45,18 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
       isMounted.current = false;
     };
   }, []);
+  
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     if (isOwner) {
@@ -266,20 +280,29 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                     </div>
                 </div>
             )}
-            <div className="mt-8 flex items-center gap-4">
+            <div className="mt-8">
               {isOwner ? (
-                <button 
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                  <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => onEditItem(item)}
+                    className="flex items-center gap-2 bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <EditIcon className="w-4 h-4" />
+                    <span>Редактировать</span>
+                  </button>
+                  <button 
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                    <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
+                  </button>
+                </div>
               ) : (
                 <button 
                   onClick={() => onStartConversation(item.owner_id)}
-                  className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors"
+                  className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <MessagesIcon className="w-4 h-4" />
                   <span>Написать владельцу</span>
@@ -302,7 +325,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                 <>
                   {visibleCommentCount < comments.length && (
                     <div className="text-center py-2">
-                        <button onClick={handleLoadMore} className="text-sm font-semibold text-primary hover:underline">
+                        <button onClick={handleLoadMore} className="text-sm font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
                             Показать предыдущие комментарии
                         </button>
                     </div>
@@ -339,7 +362,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                     aria-label="Ваш комментарий"
                   />
                   <div className="flex justify-end mt-2">
-                    <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2">
+                    <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary motion-safe:hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary">
                       <SendIcon className="w-4 h-4" />
                       <span>{isSubmitting ? 'Отправка...' : 'Отправить'}</span>
                     </button>

@@ -24,6 +24,18 @@ const WantlistMatchesModal: React.FC<WantlistMatchesModalProps> = ({ item, onClo
           isMounted.current = false;
         };
       }, []);
+      
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            onClose();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
 
     useEffect(() => {
         const fetchMatches = async () => {
@@ -123,7 +135,7 @@ const WantlistMatchesModal: React.FC<WantlistMatchesModalProps> = ({ item, onClo
                                     </div>
                                     <button 
                                         onClick={() => handleStartChat(match.user_id)}
-                                        className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 self-center sm:self-start flex-shrink-0"
+                                        className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 self-center sm:self-start flex-shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                     >
                                         <MessagesIcon className="w-4 h-4" />
                                         <span>Написать</span>
@@ -134,7 +146,7 @@ const WantlistMatchesModal: React.FC<WantlistMatchesModalProps> = ({ item, onClo
                     )}
                 </div>
                  <div className="p-4 bg-base-300/50 flex justify-end flex-shrink-0 rounded-b-2xl">
-                    <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors">
+                    <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary">
                         Закрыть
                     </button>
                 </div>

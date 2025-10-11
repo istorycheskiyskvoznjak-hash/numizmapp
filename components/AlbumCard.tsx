@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
-import { Album } from '../types';
-import FolderIcon from './icons/FolderIcon';
+import React from 'react';
+import { Album, Collectible } from '../types';
 import EditIcon from './icons/EditIcon';
 import TrashIcon from './icons/TrashIcon';
+import LockClosedIcon from './icons/LockClosedIcon';
 
 interface AlbumCardProps {
   album: Album;
+  items: Collectible[];
   itemCount: number;
-  coverImageUrl: string | null;
   onClick: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  isOwnProfile?: boolean;
 }
 
-const AlbumCard: React.FC<AlbumCardProps> = ({ album, itemCount, coverImageUrl, onClick, onEdit, onDelete }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick, onEdit, onDelete, isOwnProfile }) => {
   const getItemCountText = (count: number): string => {
     const lastDigit = count % 10;
     const lastTwoDigits = count % 100;
@@ -32,73 +31,144 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, itemCount, coverImageUrl, 
     return 'предметов';
   };
   
+  const previewItems = items.slice(0, 5);
+
   const handleEditClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering onClick for the whole card
-    if (onEdit) onEdit();
+    e.stopPropagation();
+    onEdit?.();
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering onClick for the whole card
-    if (onDelete) onDelete();
+    e.stopPropagation();
+    onDelete?.();
   };
   
-  const toggleDescription = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsExpanded(!isExpanded);
-  };
+  const finalCoverUrl = album.cover_image_url;
+  const hasHeader = !!album.header_image_url;
+  const theme = album.theme_color || 'default';
 
-  const description = album.description || '';
-  const isLongDescription = description.length > 175;
-  const displayedDescription = isLongDescription && !isExpanded
-    ? `${description.substring(0, 175)}...`
-    : description;
+  const themeClasses = {
+      default: {
+          bg: 'bg-base-300',
+          textColor: hasHeader ? 'text-white' : 'text-base-content',
+          paneBg: hasHeader ? 'bg-black/40 backdrop-blur-md' : 'bg-base-100/20',
+          coverBorder: 'border-gold/30',
+          coverBorderHover: 'group-hover:border-gold/60',
+          coverPlaceholderText: 'text-gold/50',
+          ring: 'ring-gold/50 focus-visible:ring-gold'
+      },
+      primary: {
+          bg: 'bg-primary',
+          textColor: 'text-primary-content',
+          paneBg: hasHeader ? 'bg-black/40 backdrop-blur-md' : 'bg-black/10',
+          coverBorder: 'border-primary-content/30',
+          coverBorderHover: 'group-hover:border-primary-content/60',
+          coverPlaceholderText: 'text-primary-content/50',
+          ring: 'ring-primary-focus/50 focus-visible:ring-primary-focus'
+      },
+      secondary: {
+          bg: 'bg-secondary',
+          textColor: 'text-secondary-content',
+          paneBg: hasHeader ? 'bg-black/40 backdrop-blur-md' : 'bg-black/10',
+          coverBorder: 'border-secondary-content/30',
+          coverBorderHover: 'group-hover:border-secondary-content/60',
+          coverPlaceholderText: 'text-secondary-content/50',
+          ring: 'ring-secondary-focus/50 focus-visible:ring-secondary-focus'
+      }
+  };
+  const currentTheme = themeClasses[theme];
+
 
   return (
     <div
-      className="flex items-center gap-4 bg-base-200 p-3 rounded-xl cursor-pointer group transition-all duration-300 hover:shadow-lg hover:bg-base-300"
+      className={`relative min-h-[180px] rounded-2xl overflow-hidden group transition-all duration-300 ease-in-out hover:shadow-2xl hover:scale-[1.01] focus-within:ring-2 focus-visible:ring-2 ring-offset-2 ring-offset-base-100 cursor-pointer shadow-lg ${currentTheme.bg} ${currentTheme.ring}`}
       onClick={onClick}
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
     >
-      {/* Left side: Image/Icon */}
-      <div className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 bg-base-300 rounded-lg flex items-center justify-center overflow-hidden">
-        {coverImageUrl ? (
-          <img src={coverImageUrl} alt={`Cover for ${album.name}`} className="h-full w-full object-cover" />
-        ) : (
-          <FolderIcon className="w-10 h-10 text-base-content/20" />
-        )}
-      </div>
-
-      {/* Right side: Info */}
-      <div className="flex-1 min-w-0 self-start py-1">
-        <h3 className="font-bold text-xl text-base-content">{album.name}</h3>
-        {description && (
-          <div className="text-sm text-base-content/70 mt-1 break-words">
-            <p className="inline">{displayedDescription}</p>
-            {isLongDescription && (
-              <button onClick={toggleDescription} className="text-primary font-semibold hover:underline ml-1 inline">
-                {isExpanded ? 'Скрыть' : 'Раскрыть'}
-              </button>
-            )}
-          </div>
-        )}
-        <p className="text-sm font-semibold text-primary mt-2">
-          {itemCount} {getItemCountText(itemCount)}
-        </p>
-      </div>
-
-      {/* Action Buttons */}
-      {(onEdit || onDelete) && (
-        <div className="flex flex-col sm:flex-row gap-2 self-center ml-auto pl-2">
-          {onEdit && (
-            <button onClick={handleEditClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-secondary transition-colors" aria-label="Редактировать альбом">
-              <EditIcon className="w-4 h-4" />
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={handleDeleteClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-red-500/20 hover:!text-red-500 transition-colors" aria-label="Удалить альбом">
-              <TrashIcon className="w-4 h-4" />
-            </button>
-          )}
+      {/* Layer 1: BG Texture */}
+      {hasHeader && (
+        <img src={album.header_image_url!} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105" />
+      )}
+      {/* Layer 2 & 3: Vignette + Overlay */}
+      {hasHeader && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/30"></div>}
+      
+      {/* Main Content Grid */}
+      <div className="relative grid grid-cols-12 gap-x-4 sm:gap-x-6 p-4 h-full">
+        {/* Left Column: Cover */}
+        <div className="col-span-4 flex items-center justify-center">
+            <div className="relative w-full aspect-square max-w-[120px] transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-105">
+                {finalCoverUrl ? (
+                    <div className={`relative w-full h-full bg-black rounded-lg shadow-lg border-2 ${currentTheme.coverBorder} ${currentTheme.coverBorderHover} transition-colors duration-300 p-1`}>
+                        <img src={finalCoverUrl} alt={`Cover for ${album.name}`} className="h-full w-full object-cover rounded-[3px] shadow-inner" />
+                        {/* Hover Sheen Effect */}
+                        <div className="absolute inset-0 rounded-md overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="absolute top-0 -left-full w-1/2 h-full bg-gradient-to-r from-transparent to-white/20 -skew-x-12 animate-[sheen_1.5s_ease-out_infinite] group-hover:animate-[sheen_0.7s_ease-out_forwards]"></div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className={`w-full h-full flex flex-col items-center justify-center bg-black/50 rounded-lg border-2 ${currentTheme.coverBorder} p-2 text-center ${currentTheme.coverPlaceholderText} shadow-inner`}>
+                        <div className="flex-shrink-0">
+                            <span className="font-serif text-lg tracking-widest uppercase">{album.cover_text || 'ALBUM'}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
+
+        {/* Right Column: Content Pane */}
+        <div className="col-span-8 flex flex-col justify-between">
+          <div className={`${currentTheme.paneBg} rounded-xl p-4 border border-white/10 h-full flex flex-col justify-between`}>
+            <div>
+              <h3 className={`font-semibold text-lg sm:text-xl tracking-tight leading-tight flex items-center ${currentTheme.textColor}`}>
+                {isOwnProfile && !album.is_public && (
+                  // FIX: Changed `title` prop to a `<title>` child element to fix TypeScript error and provide an accessible tooltip.
+                  <LockClosedIcon className="w-4 h-4 mr-2 flex-shrink-0 opacity-70">
+                    <title>Приватный альбом</title>
+                  </LockClosedIcon>
+                )}
+                <span className="truncate">{album.name}</span>
+              </h3>
+              {album.description && (
+                <p className={`text-sm mt-1 line-clamp-1 ${currentTheme.textColor}/70`}>
+                  {album.description}
+                </p>
+              )}
+               {previewItems.length > 0 && (
+                <div className="mt-3 space-y-1 text-xs">
+                  {previewItems.map(item => (
+                    <p key={item.id} className={`truncate ${currentTheme.textColor}/70`}>
+                      • {item.name}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="pt-2 flex items-center gap-2 flex-wrap">
+                {itemCount > 5 && (
+                    <div className="bg-primary text-primary-content font-semibold py-1 px-4 rounded-full text-sm shadow-sm">
+                        и ещё {itemCount - 5} {getItemCountText(itemCount - 5)}
+                    </div>
+                )}
+            </div>
+          </div>
+        </div>
+      </div>
+       {/* Action Buttons - appear on hover */}
+      {(onEdit || onDelete) && (
+          <div className="absolute top-3 right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300">
+              {onEdit && (
+              <button onClick={handleEditClick} className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-colors" aria-label="Редактировать альбом">
+                  <EditIcon className="w-4 h-4" />
+              </button>
+              )}
+              {onDelete && (
+              <button onClick={handleDeleteClick} className="p-2 rounded-full bg-black/40 text-white backdrop-blur-md hover:bg-red-500/80 transition-colors" aria-label="Удалить альбом">
+                  <TrashIcon className="w-4 h-4" />
+              </button>
+              )}
+          </div>
       )}
     </div>
   );

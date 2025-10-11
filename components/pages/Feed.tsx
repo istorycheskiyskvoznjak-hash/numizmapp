@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Collectible, Page } from '../../types';
+import { Collectible, Page, Profile } from '../../types';
 import ItemCard from '../ItemCard';
 import { supabase } from '../../supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import ItemCardSkeleton from '../skeletons/ItemCardSkeleton';
+import LoadMoreButton from '../LoadMoreButton';
 
 interface FeedProps {
   onItemClick: (item: Collectible) => void;
+  onCheckWantlist: (item: Collectible) => void;
   dataVersion: number;
   session: Session;
   setCurrentPage: (page: Page) => void;
@@ -18,8 +21,8 @@ const FilterButton: React.FC<{
 }> = ({ onClick, isActive, children }) => (
     <button
         onClick={onClick}
-        className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
-            isActive ? 'bg-primary text-black' : 'bg-base-200 hover:bg-base-300'
+        className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-200 ${
+            isActive ? 'bg-primary text-primary-content' : 'bg-base-200 hover:bg-base-300'
         }`}
     >
         {children}
@@ -28,7 +31,7 @@ const FilterButton: React.FC<{
 
 const ITEMS_PER_PAGE = 12;
 
-const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurrentPage }) => {
+const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, session, setCurrentPage }) => {
   // --- States for Subscribed Feed ---
   const [subscribedCollectibles, setSubscribedCollectibles] = useState<Collectible[]>([]);
   const [loadingSubscribed, setLoadingSubscribed] = useState(true);
@@ -87,17 +90,16 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
         if (ownerIds.length > 0) {
             const { data: profilesData, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, handle')
+                .select('id, handle, avatar_url')
                 .in('id', ownerIds);
 
             if (profilesError) {
                 console.error('Error fetching profiles for feed:', profilesError.message);
             } else {
-                // FIX: Property 'handle' does not exist on type 'unknown'. Provide explicit type for profile data.
-                const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null}) => [p.id, p]));
+                const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null, avatar_url: string}) => [p.id, p]));
                 combinedData = collectiblesData.map(c => ({
                     ...c,
-                    profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle } : null,
+                    profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } : null,
                 }));
             }
         }
@@ -166,7 +168,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
           const ownerIds = [...new Set(subscribedItemsData.map(c => c.owner_id))];
           const { data: profilesData, error: profilesError } = await supabase
               .from('profiles')
-              .select('id, handle')
+              .select('id, handle, avatar_url')
               .in('id', ownerIds);
 
           let combinedData;
@@ -174,11 +176,10 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
             console.error('Error fetching profiles for subscribed feed:', profilesError);
             combinedData = subscribedItemsData; // Fallback
           } else {
-            // FIX: Property 'handle' does not exist on type 'unknown'. Provide explicit type for profile data.
-            const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null}) => [p.id, p]));
+            const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null, avatar_url: string}) => [p.id, p]));
             combinedData = subscribedItemsData.map(c => ({
                 ...c,
-                profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle } : null,
+                profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } : null,
             }));
           }
           if (isMounted.current) {
@@ -210,9 +211,9 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
       {/* Subscribed Feed Section */}
       {!loadingSubscribed && subscribedCollectibles.length > 0 && (
         <div>
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
+          <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
             <h1 className="text-3xl font-bold">Мои подписки</h1>
-            <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full self-start sm:self-center">
+            <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
                 <FilterButton onClick={() => setSubscribedFilterCategory('all')} isActive={subscribedFilterCategory === 'all'}>Все</FilterButton>
                 <FilterButton onClick={() => setSubscribedFilterCategory('coin')} isActive={subscribedFilterCategory === 'coin'}>Монеты</FilterButton>
                 <FilterButton onClick={() => setSubscribedFilterCategory('banknote')} isActive={subscribedFilterCategory === 'banknote'}>Банкноты</FilterButton>
@@ -223,7 +224,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
           {displayedSubscribedCollectibles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {displayedSubscribedCollectibles.map(item => (
-                <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>
+                <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={onCheckWantlist}/>
               ))}
             </div>
           ) : (
@@ -234,7 +235,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
 
           {filteredSubscribedCollectibles.length > 10 && (
             <div className="mt-8 text-center">
-              <button onClick={() => setCurrentPage('SubscriptionFeed')} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
+              <button onClick={() => setCurrentPage('SubscriptionFeed')} className="bg-base-200 hover:bg-secondary hover:text-secondary-content font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100">
                 Показать всю ленту подписок
               </button>
             </div>
@@ -244,9 +245,9 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
 
       {/* Recently Added Section */}
       <div>
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
+        <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
           <h1 className="text-3xl font-bold">Недавно добавленные</h1>
-          <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full self-start sm:self-center">
+          <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
               <FilterButton onClick={() => setFilterCategory('all')} isActive={filterCategory === 'all'}>Все</FilterButton>
               <FilterButton onClick={() => setFilterCategory('coin')} isActive={filterCategory === 'coin'}>Монеты</FilterButton>
               <FilterButton onClick={() => setFilterCategory('banknote')} isActive={filterCategory === 'banknote'}>Банкноты</FilterButton>
@@ -254,14 +255,19 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
           </div>
         </div>
         {loading ? (
-            <div>Загрузка ленты...</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => <ItemCardSkeleton key={i} />)}
+            </div>
         ) : (
           <>
             {collectibles.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {collectibles.map((item) => (
-                        <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>
-                    ))}
+                    {collectibles.map((item) => {
+                       const createdAt = new Date(item.created_at);
+                       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                       const isNew = createdAt > oneDayAgo;
+                       return <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={onCheckWantlist} isNew={isNew}/>
+                    })}
                 </div>
             ) : (
                 <div className="text-center py-16 bg-base-200 rounded-2xl">
@@ -271,13 +277,12 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session, setCurre
             )}
             {hasMore && (
               <div className="mt-8 text-center">
-                <button
+                <LoadMoreButton
                   onClick={() => fetchCollectibles(false)}
-                  disabled={loadingMore}
-                  className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto disabled:opacity-50"
+                  loading={loadingMore}
                 >
-                  {loadingMore ? 'Загрузка...' : 'Загрузить еще'}
-                </button>
+                  Загрузить еще
+                </LoadMoreButton>
               </div>
             )}
             {!hasMore && collectibles.length > 0 && <div className="text-center p-4 text-base-content/60 mt-4">Вы всё посмотрели.</div>}

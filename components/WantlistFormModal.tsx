@@ -19,7 +19,6 @@ const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label
 
 const BUCKET_NAME = 'collectibles';
 
-// FIX: Added missing WantlistFormModalProps interface.
 interface WantlistFormModalProps {
     itemToEdit?: WantlistItem | null;
     onClose: () => void;
@@ -52,6 +51,18 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             isMounted.current = false;
         };
     }, [itemToEdit, isEditMode]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            onClose();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -190,10 +201,10 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
                     {error && <p className="text-sm text-center text-red-500">{error}</p>}
                     
                     <div className="flex justify-end space-x-4 pt-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors">
+                        <button type="button" onClick={onClose} className="px-6 py-2 rounded-full text-sm font-medium bg-base-300 hover:bg-base-content/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary">
                             Отмена
                         </button>
-                        <button type="submit" disabled={loading} className="px-6 py-2 rounded-full text-sm font-bold text-black bg-primary hover:scale-105 transition-transform disabled:opacity-50">
+                        <button type="submit" disabled={loading} className="px-6 py-2 rounded-full text-sm font-bold text-black bg-primary motion-safe:hover:scale-105 transition-transform disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus">
                             {loading ? 'Сохранение...' : 'Сохранить'}
                         </button>
                     </div>

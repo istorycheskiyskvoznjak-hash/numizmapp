@@ -7,27 +7,40 @@ import Wantlist from './components/pages/Wantlist';
 import Messages from './components/pages/Messages';
 import Profile from './components/pages/Profile';
 import ItemDetailModal from './components/ItemDetailModal';
-import AddItemModal from './components/AddItemModal';
+import ItemFormModal from './components/ItemFormModal';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import Auth from './components/Auth';
 import SubscriptionFeed from './components/pages/SubscriptionFeed';
+import WantlistMatchesModal from './components/WantlistMatchesModal';
+import GlobalSearchModal from './components/GlobalSearchModal';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
   const [currentPage, _setCurrentPage] = useState<Page>('Collection');
+  const [previousPage, setPreviousPage] = useState<Page>('Feed');
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [addItemModalState, setAddItemModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
+  const [editingItem, setEditingItem] = useState<Collectible | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
   const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [initialAlbumId, setInitialAlbumId] = useState<string | null>(null);
+  const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const isMounted = useRef(true);
 
   // New navigation handler to centralize page changes and state cleanup
   const setCurrentPage = (page: Page) => {
+    _setCurrentPage(oldPage => {
+        if (oldPage !== page && oldPage !== 'PublicProfile' && oldPage !== 'Profile') {
+            setPreviousPage(oldPage);
+        }
+        return page;
+    });
+
     if (page !== 'PublicProfile') {
       setViewingProfileId(null);
       if (window.location.search.includes('profileId')) {
@@ -38,7 +51,6 @@ const App: React.FC = () => {
     if (page !== 'Collection') {
       setInitialAlbumId(null);
     }
-    _setCurrentPage(page);
   };
 
 
@@ -54,6 +66,19 @@ const App: React.FC = () => {
     root.classList.remove(theme === 'light' ? 'dark' : 'light');
     root.classList.add(theme);
   }, [theme]);
+
+  // Global search shortcut
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault();
+        setIsSearchOpen(o => !o);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -76,13 +101,16 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Updated to navigate to full page instead of modal
+  // Handles deep linking from URLs with profileId or albumId
   useEffect(() => {
-    const handleProfileLink = async () => {
+    const handleUrlParams = async () => {
+      if (!session) return; // Wait for session to be available
+
       const params = new URLSearchParams(window.location.search);
       const profileHandle = params.get('profileId');
+      const albumIdFromUrl = params.get('albumId');
 
-      if (profileHandle && session) {
+      if (profileHandle) {
         const { data, error } = await supabase
           .from('profiles')
           .select('id')
@@ -98,10 +126,19 @@ const App: React.FC = () => {
             setViewingProfileId(data.id);
             _setCurrentPage('PublicProfile'); // Use direct setter to avoid cleanup
           }
+          // Clear URL param after navigation
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
+      } else if (albumIdFromUrl) {
+         if (isMounted.current) {
+            setInitialAlbumId(albumIdFromUrl);
+            setCurrentPage('Collection');
+            // Clear URL param after navigation
+            window.history.replaceState({}, document.title, window.location.pathname);
+         }
       }
     };
-    handleProfileLink();
+    handleUrlParams();
   }, [session]);
 
 
@@ -141,7 +178,6 @@ const App: React.FC = () => {
         }, (payload) => {
             const newMessage = payload.new as Message;
             if (newMessage.sender_id !== session.user.id) {
-                // FIX: Operator '+' cannot be applied to types 'unknown' and 'unknown'. Explicitly typing `prev` resolves the type inference issue.
                 setUnreadMessages((prev: Record<string, number>) => {
                     const newCounts = { ...prev };
                     newCounts[newMessage.sender_id] = (newCounts[newMessage.sender_id] || 0) + 1;
@@ -190,12 +226,13 @@ const App: React.FC = () => {
     setAddItemModalState({ isOpen: true, initialAlbumId });
   };
 
-  const handleCloseAddItemModal = () => {
+  const handleCloseItemFormModal = () => {
     setAddItemModalState({ isOpen: false });
+    setEditingItem(null);
   };
 
-  const handleItemAdded = () => {
-    handleCloseAddItemModal();
+  const handleItemFormSuccess = () => {
+    handleCloseItemFormModal();
     setCurrentPage('Collection');
     refreshData();
   };
@@ -205,21 +242,33 @@ const App: React.FC = () => {
     refreshData();
   }
 
+  const handleEditItemRequest = (item: Collectible) => {
+    setSelectedItem(null); // Close detail view
+    setEditingItem(item);   // Open form in edit mode
+  };
+
   const handleStartConversation = (userId: string) => {
     setInitialMessageUserId(userId);
     setCurrentPage('Messages');
     setSelectedItem(null);
+    setCheckingItem(null);
   };
 
   const handleViewProfile = (profile: ProfileData) => {
     if (!session) return;
     if (profile.id === session.user.id) {
-      setCurrentPage('Profile');
+        setCurrentPage('Profile');
     } else {
-      setViewingProfileId(profile.id);
-      _setCurrentPage('PublicProfile'); // Use direct setter to avoid state cleanup
+        setViewingProfileId(profile.id);
+        _setCurrentPage(oldPage => {
+            if (oldPage !== 'PublicProfile' && oldPage !== 'Profile') {
+                setPreviousPage(oldPage);
+            }
+            return 'PublicProfile';
+        });
     }
     setSelectedItem(null);
+    setIsSearchOpen(false);
   };
 
 
@@ -229,6 +278,7 @@ const App: React.FC = () => {
   
   const handleItemClick = (item: Collectible) => {
     setSelectedItem(item);
+    setIsSearchOpen(false);
   };
   
   const handleViewAlbum = (albumId: string) => {
@@ -266,7 +316,7 @@ const App: React.FC = () => {
 
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('handle')
+      .select('handle, avatar_url')
       .eq('id', itemData.owner_id)
       .single();
     
@@ -276,17 +326,18 @@ const App: React.FC = () => {
     
     const fullItem: Collectible = {
       ...itemData,
-      profiles: profileData ? { handle: profileData.handle } : null,
+      profiles: profileData ? { handle: profileData.handle, avatar_url: profileData.avatar_url } : null,
     };
 
     setSelectedItem(fullItem);
+    setIsSearchOpen(false);
   };
 
   const renderPage = () => {
     if (!session) return null;
     switch (currentPage) {
       case 'Feed':
-        return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} session={session} setCurrentPage={setCurrentPage} />;
+        return <Feed onItemClick={handleItemClick} onCheckWantlist={setCheckingItem} dataVersion={dataVersion} session={session} setCurrentPage={setCurrentPage} />;
       case 'SubscriptionFeed':
         return <SubscriptionFeed 
             session={session} 
@@ -328,7 +379,7 @@ const App: React.FC = () => {
             onViewCollection={handleViewCollection}
             onViewWantlist={handleViewWantlist}
             onStartConversation={handleStartConversation}
-            onBack={() => setCurrentPage('Feed')} // Simple back navigation
+            onBack={() => setCurrentPage(previousPage)} // Use the stored previous page
         />;
       default:
         return <Profile 
@@ -357,6 +408,7 @@ const App: React.FC = () => {
         theme={theme}
         toggleTheme={toggleTheme}
         unreadMessageCount={totalUnreadCount}
+        onSearchOpen={() => setIsSearchOpen(true)}
       >
         {renderPage()}
       </Layout>
@@ -368,13 +420,29 @@ const App: React.FC = () => {
           onDeleteSuccess={handleItemDeleted}
           onStartConversation={handleStartConversation}
           onItemUpdate={refreshData}
+          onEditItem={handleEditItemRequest}
         />
       )}
-      {addItemModalState.isOpen && (
-        <AddItemModal 
-          onClose={handleCloseAddItemModal}
-          onSuccess={handleItemAdded}
+      {(addItemModalState.isOpen || editingItem) && (
+        <ItemFormModal
+          onClose={handleCloseItemFormModal}
+          onSuccess={handleItemFormSuccess}
           initialAlbumId={addItemModalState.initialAlbumId}
+          itemToEdit={editingItem}
+        />
+      )}
+      {checkingItem && (
+        <WantlistMatchesModal
+            item={checkingItem}
+            onClose={() => setCheckingItem(null)}
+            onStartConversation={handleStartConversation}
+        />
+      )}
+      {isSearchOpen && (
+        <GlobalSearchModal
+          onClose={() => setIsSearchOpen(false)}
+          onViewProfile={handleViewProfile}
+          onViewItem={handleItemClickById}
         />
       )}
     </>

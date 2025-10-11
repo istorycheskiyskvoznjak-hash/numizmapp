@@ -9,6 +9,7 @@ interface LayoutProps {
   toggleTheme: () => void;
   children: React.ReactNode;
   unreadMessageCount: number;
+  onSearchOpen: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -18,6 +19,7 @@ const Layout: React.FC<LayoutProps> = ({
     toggleTheme, 
     children, 
     unreadMessageCount,
+    onSearchOpen
 }) => {
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
@@ -27,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({
         theme={theme}
         toggleTheme={toggleTheme}
         unreadMessageCount={unreadMessageCount}
+        onSearchOpen={onSearchOpen}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}
