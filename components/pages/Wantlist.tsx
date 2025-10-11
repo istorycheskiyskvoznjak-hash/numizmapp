@@ -19,9 +19,10 @@ interface WantlistProps {
   clearInitialListId: () => void;
   profileId?: string | null;
   onBack?: () => void;
+  onStartConversation?: (userId: string) => void;
 }
 
-const Wantlist: React.FC<WantlistProps> = ({ session, initialListId, clearInitialListId, profileId, onBack }) => {
+const Wantlist: React.FC<WantlistProps> = ({ session, initialListId, clearInitialListId, profileId, onBack, onStartConversation }) => {
   const [lists, setLists] = useState<WantlistList[]>([]);
   const [items, setItems] = useState<ClientWantlistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,9 +230,11 @@ const Wantlist: React.FC<WantlistProps> = ({ session, initialListId, clearInitia
                             key={item.id} 
                             item={item}
                             isTransitioning={item.is_transitioning}
-                            onEdit={isOwnProfile ? () => handleOpenEditItemModal(item) : undefined}
-                            onDelete={isOwnProfile ? () => handleDeleteItem(item.id) : undefined}
-                            onToggleFound={isOwnProfile ? () => handleToggleFound(item.id, !!item.is_found) : undefined}
+                            onEdit={() => handleOpenEditItemModal(item)}
+                            onDelete={() => handleDeleteItem(item.id)}
+                            onToggleFound={() => handleToggleFound(item.id, !!item.is_found)}
+                            isOwnProfile={isOwnProfile}
+                            onStartConversation={() => onStartConversation?.(item.user_id)}
                         />
                     ))}
                 </div>

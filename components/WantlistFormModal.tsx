@@ -35,6 +35,7 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
     const [isDeletingImage, setIsDeletingImage] = useState(false);
     const [lists, setLists] = useState<WantlistList[]>([]);
     const [selectedListId, setSelectedListId] = useState<string>('');
+    const [isFound, setIsFound] = useState(false);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -50,6 +51,7 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             setDescription(itemToEdit.description);
             setImagePreview(itemToEdit.image_url || null);
             setSelectedListId(itemToEdit.list_id || '');
+            setIsFound(!!itemToEdit.is_found);
         } else {
             setSelectedListId(initialListId || '');
         }
@@ -159,25 +161,32 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
                 imageUrl = publicUrl;
             }
 
-            const itemData = { 
-                name, 
-                details, 
-                description, 
-                user_id: user.id,
-                image_url: imageUrl,
-                list_id: selectedListId,
-            };
-
             if (isEditMode) {
+                const updateData = { 
+                    name, 
+                    details, 
+                    description, 
+                    image_url: imageUrl,
+                    list_id: selectedListId,
+                    is_found: isFound,
+                };
                 const { error: updateError } = await supabase
                     .from('wantlist')
-                    .update(itemData)
+                    .update(updateData)
                     .eq('id', itemToEdit.id);
                 if (updateError) throw updateError;
             } else {
+                 const insertData = { 
+                    name, 
+                    details, 
+                    description, 
+                    user_id: user.id,
+                    image_url: imageUrl,
+                    list_id: selectedListId,
+                };
                 const { error: insertError } = await supabase
                     .from('wantlist')
-                    .insert(itemData);
+                    .insert(insertData);
                 if (insertError) throw insertError;
             }
             
@@ -245,6 +254,33 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
                         <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={4} className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Опишите, что именно вы ищете..."></textarea>
                     </div>
                     
+                    {isEditMode && (
+                         <div className="flex items-center justify-between bg-base-100 p-3 rounded-lg border border-base-300">
+                            <div>
+                                <label htmlFor="isFound" className="font-medium text-base-content">
+                                    Предмет найден
+                                </label>
+                                <p className="text-xs text-base-content/70">Отметьте, если вы уже приобрели этот предмет.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsFound(!isFound)}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-base-200 ${
+                                    isFound ? 'bg-primary' : 'bg-base-300'
+                                }`}
+                                role="switch"
+                                aria-checked={isFound}
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                        isFound ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    )}
+
                     {error && <p className="text-sm text-center text-red-500">{error}</p>}
                     
                     <div className="flex justify-end space-x-4 pt-4">

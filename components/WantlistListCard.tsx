@@ -43,11 +43,9 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
     onDelete?.();
   };
 
-  const previewItems = items.slice(0, 4);
-
   return (
     <div
-      className="bg-base-300 rounded-2xl p-4 flex flex-col justify-between group cursor-pointer hover:bg-base-content/10 transition-colors relative"
+      className="bg-base-300 rounded-2xl p-4 flex flex-col group cursor-pointer hover:bg-base-content/10 transition-colors relative"
       onClick={onClick}
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
@@ -58,7 +56,7 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
                 <h3 className="font-bold text-xl">{list.name}</h3>
                 <p className="text-base-content/70 text-sm">{items.length} {getItemCountText(items.length)}</p>
             </div>
-            {isOwnProfile && (
+            {(isOwnProfile || list.is_public) && (
                 <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${list.is_public ? 'bg-emerald-500/30 text-emerald-200 border-emerald-300/50' : 'bg-amber-500/30 text-amber-200 border-amber-300/50'}`}>
                     {list.is_public ? <EyeIcon className="w-3.5 h-3.5" /> : <LockClosedIcon className="w-3.5 h-3.5" />}
                     <span>{list.is_public ? 'Публичный' : 'Приватный'}</span>
@@ -69,18 +67,35 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
       </div>
 
       <div className="mt-4 pt-4 border-t border-base-content/10">
-        {previewItems.length > 0 ? (
-          <div className="flex -space-x-4">
-            {previewItems.map(item => (
-              <div key={item.id} className="w-10 h-10 bg-base-100 rounded-full border-2 border-base-300 flex items-center justify-center overflow-hidden shadow-md">
-                {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                ) : (
-                    <ImageIcon className="w-5 h-5 text-base-content/40" />
+        {items.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+                {items.slice(0, 4).map(item => (
+                <li key={item.id} className={`flex items-center gap-3 transition-colors ${item.is_found ? 'text-base-content/50' : 'text-base-content/90'}`}>
+                    <div className="w-6 h-6 bg-base-100 rounded-md flex-shrink-0 flex items-center justify-center overflow-hidden border border-base-content/10">
+                    {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                    ) : (
+                        <ImageIcon className="w-4 h-4 text-base-content/40" />
+                    )}
+                    </div>
+                    {item.is_found ? (
+                        <span className="flex-shrink-0 text-[10px] font-bold bg-emerald-500/20 text-emerald-500 px-2 py-0.5 rounded-full">
+                            Найдено
+                        </span>
+                    ) : (
+                        <span className="flex-shrink-0 text-[10px] font-bold bg-amber-500/20 text-amber-500 px-2 py-0.5 rounded-full">
+                            Активно
+                        </span>
+                    )}
+                    <span className={`truncate flex-1 ${item.is_found ? 'line-through' : ''}`}>{item.name}</span>
+                </li>
+                ))}
+                {items.length > 4 && (
+                <li className="text-xs text-base-content/60 pl-8 pt-1">
+                    ...и еще {items.length - 4}
+                </li>
                 )}
-              </div>
-            ))}
-          </div>
+            </ul>
         ) : (
           <p className="text-sm text-base-content/60">В этом списке пока нет предметов.</p>
         )}

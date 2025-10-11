@@ -411,6 +411,7 @@ const App: React.FC = () => {
             initialListId={initialWantlistListId}
             clearInitialListId={() => setInitialWantlistListId(null)}
             onBack={() => _setCurrentPage('PublicProfile')}
+            onStartConversation={handleStartConversation}
         />;
       default:
         return <Profile 
