@@ -6,8 +6,11 @@ import WantlistFormModal from '../WantlistFormModal';
 import { supabase } from '../../supabaseClient';
 import WantlistItemCard from '../WantlistItemCard';
 
+// Define a client-side type to handle the animation state without affecting the database model
+type ClientWantlistItem = WantlistItem & { is_transitioning?: boolean };
+
 const Wantlist: React.FC = () => {
-  const [items, setItems] = useState<WantlistItem[]>([]);
+  const [items, setItems] = useState<ClientWantlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WantlistItem | null>(null);
@@ -29,7 +32,7 @@ const Wantlist: React.FC = () => {
     if (error) {
         console.error('Error fetching wantlist:', error);
     } else {
-        setItems(data as WantlistItem[]);
+        setItems(data as ClientWantlistItem[]);
     }
     setLoading(false);
   }, []);
@@ -70,6 +73,50 @@ const Wantlist: React.FC = () => {
     }
   };
 
+  const handleToggleFound = (itemId: string, currentStatus: boolean) => {
+    // Step 1: Immediately apply visual styles (strikethrough, opacity)
+    // by setting is_found and marking it as transitioning to prevent movement.
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId
+          ? { ...item, is_found: !currentStatus, is_transitioning: true }
+          : item
+      )
+    );
+
+    // Step 2: After a delay, allow the item to move by clearing the transition flag.
+    setTimeout(() => {
+      setItems(prevItems =>
+        prevItems.map(item =>
+          item.id === itemId ? { ...item, is_transitioning: false } : item
+        )
+      );
+    }, 800); // 0.8 second delay for the item to stay in place.
+
+    // Step 3: Update the database in the background.
+    const updateDatabase = async () => {
+      const { error } = await supabase
+        .from('wantlist')
+        .update({ is_found: !currentStatus })
+        .eq('id', itemId);
+
+      if (error) {
+        console.error('Error toggling found status:', error);
+        alert('Не удалось обновить статус.');
+        // On error, revert the item to its original state.
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === itemId
+              ? { ...item, is_found: currentStatus, is_transitioning: false }
+              : item
+          )
+        );
+      }
+    };
+
+    updateDatabase();
+  };
+
   return (
     <>
         <div>
@@ -91,13 +138,15 @@ const Wantlist: React.FC = () => {
                     <p className="text-base-content/70 mt-2">Нажмите "Добавить в вишлист", чтобы начать собирать коллекцию мечты.</p>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                     {items.map(item => (
                         <WantlistItemCard 
                             key={item.id} 
                             item={item}
+                            isTransitioning={item.is_transitioning}
                             onEdit={() => handleOpenEditModal(item)}
                             onDelete={() => handleDelete(item.id)}
+                            onToggleFound={() => handleToggleFound(item.id, !!item.is_found)}
                         />
                     ))}
                 </div>

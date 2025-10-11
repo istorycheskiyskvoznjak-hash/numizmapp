@@ -144,62 +144,6 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
     );
 };
 
-const Pagination: React.FC<{
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
-}> = ({ currentPage, totalPages, onPageChange }) => {
-  const handlePrev = () => {
-    if (currentPage > 1) onPageChange(currentPage - 1);
-  };
-  const handleNext = () => {
-    if (currentPage < totalPages) onPageChange(currentPage + 1);
-  };
-
-  const getPageNumbers = () => {
-    const pageNumbers: (number | string)[] = [];
-    const maxPagesToShow = 7;
-    if (totalPages <= maxPagesToShow) {
-      for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
-    } else {
-      pageNumbers.push(1);
-      if (currentPage > 4) pageNumbers.push('...');
-      
-      let start = Math.max(2, currentPage - 2);
-      let end = Math.min(totalPages - 1, currentPage + 2);
-
-      if (currentPage <= 4) end = 5;
-      if (currentPage >= totalPages - 3) start = totalPages - 4;
-
-      for (let i = start; i <= end; i++) pageNumbers.push(i);
-
-      if (currentPage < totalPages - 3) pageNumbers.push('...');
-      pageNumbers.push(totalPages);
-    }
-    return [...new Set(pageNumbers)];
-  };
-
-  const pages = getPageNumbers();
-
-  return (
-    <nav className="flex items-center justify-center space-x-1 sm:space-x-2">
-      <button onClick={handlePrev} disabled={currentPage === 1} className="px-3 py-2 bg-base-200 rounded-md disabled:opacity-50 hover:bg-base-300 text-sm font-semibold">Назад</button>
-      {pages.map((page, index) =>
-        typeof page === 'number' ? (
-          <button
-            key={`${page}-${index}`}
-            onClick={() => onPageChange(page)}
-            className={`w-10 h-10 rounded-md text-sm font-semibold ${currentPage === page ? 'bg-primary text-black' : 'bg-base-200 hover:bg-base-300'}`}
-          >{page}</button>
-        ) : (
-          <span key={`ellipsis-${index}`} className="px-2 py-2 text-sm">...</span>
-        )
-      )}
-      <button onClick={handleNext} disabled={currentPage === totalPages} className="px-3 py-2 bg-base-200 rounded-md disabled:opacity-50 hover:bg-base-300 text-sm font-semibold">Вперед</button>
-    </nav>
-  );
-};
-
 const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation, initialAlbumId, clearInitialAlbumId }) => {
   const [userItems, setUserItems] = useState<Collectible[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -220,8 +164,14 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
 
   const [albumFilters, setAlbumFilters] = useState(initialFilters);
   const [unassignedFilters, setUnassignedFilters] = useState(initialFilters);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
+
+  const INITIAL_ALBUMS_VISIBLE = 4;
+  const ALBUMS_TO_LOAD = 2;
+  const INITIAL_UNASSIGNED_VISIBLE = 16;
+  const UNASSIGNED_TO_LOAD = 4;
+
+  const [visibleAlbumCount, setVisibleAlbumCount] = useState(INITIAL_ALBUMS_VISIBLE);
+  const [visibleUnassignedCount, setVisibleUnassignedCount] = useState(INITIAL_UNASSIGNED_VISIBLE);
 
   const isMounted = useRef(true);
 
@@ -309,18 +259,14 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
   const unassignedItems = useMemo(() => userItems.filter(item => !item.album_id), [userItems]);
   const filteredUnassignedItems = useMemo(() => applyFilters(unassignedItems, unassignedFilters), [unassignedItems, unassignedFilters]);
 
-  const totalPages = Math.ceil(filteredUnassignedItems.length / ITEMS_PER_PAGE);
-  const paginatedItems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredUnassignedItems.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredUnassignedItems, currentPage]);
-
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  const visibleAlbums = useMemo(() => albums.slice(0, visibleAlbumCount), [albums, visibleAlbumCount]);
+  const visibleUnassignedItems = useMemo(() => filteredUnassignedItems.slice(0, visibleUnassignedCount), [filteredUnassignedItems, visibleUnassignedCount]);
   
+  const handleSetUnassignedFilters = (action: React.SetStateAction<typeof initialFilters>) => {
+    setUnassignedFilters(action);
+    setVisibleUnassignedCount(INITIAL_UNASSIGNED_VISIBLE);
+  };
+
   const handleAlbumClick = (album: Album) => {
     setSelectedAlbum(album);
     setAlbumFilters(initialFilters);
@@ -366,6 +312,14 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
     }
     
     refreshData();
+  };
+
+  const handleLoadMoreAlbums = () => {
+    setVisibleAlbumCount(prev => Math.min(prev + ALBUMS_TO_LOAD, albums.length));
+  };
+
+  const handleLoadMoreUnassigned = () => {
+    setVisibleUnassignedCount(prev => Math.min(prev + UNASSIGNED_TO_LOAD, filteredUnassignedItems.length));
   };
 
 
@@ -422,13 +376,13 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
         ) : (
           // VIEW: MAIN PAGE (FILTERS -> ALBUMS -> UNASSIGNED ITEMS)
           <div>
-            <FilterPanel filters={unassignedFilters} setFilters={setUnassignedFilters} initialFilters={initialFilters} />
+            <FilterPanel filters={unassignedFilters} setFilters={handleSetUnassignedFilters} initialFilters={initialFilters} />
             
             {albums.length > 0 && (
                  <div className="mt-12">
                     <h2 className="text-2xl font-bold mb-6">Альбомы</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {albums.map(album => {
+                        {visibleAlbums.map(album => {
                             const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
                             const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
                             return (
@@ -444,6 +398,13 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                             )
                         })}
                     </div>
+                    {visibleAlbumCount < albums.length && (
+                        <div className="mt-8 text-center">
+                            <button onClick={handleLoadMoreAlbums} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
+                                Загрузить еще 2 альбома
+                            </button>
+                        </div>
+                    )}
                  </div>
             )}
            
@@ -451,12 +412,14 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                 <div className="mt-12">
                     <h2 className="text-2xl font-bold mb-6">Без альбома</h2>
                     <div className="mb-8 text-sm text-base-content/70">Найдено: {filteredUnassignedItems.length}</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                        {paginatedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
                     </div>
-                    {totalPages > 1 && (
+                    {visibleUnassignedCount < filteredUnassignedItems.length && (
                       <div className="mt-8 flex justify-center">
-                        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                        <button onClick={handleLoadMoreUnassigned} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
+                            Загрузить еще 4
+                        </button>
                       </div>
                     )}
                 </div>

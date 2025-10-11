@@ -56,6 +56,8 @@ export interface WantlistItem {
     details: string;
     description: string;
     created_at: string;
+    is_found?: boolean;
+    image_url?: string | null;
 }
 
 export interface MessageThread {

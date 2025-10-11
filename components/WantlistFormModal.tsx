@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { WantlistItem } from '../types';
-
-interface WantlistFormModalProps {
-  itemToEdit?: WantlistItem | null;
-  onClose: () => void;
-  onSuccess: () => void;
-}
+import XCircleIcon from './icons/XCircleIcon';
 
 const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, id, ...props }) => (
     <div>
@@ -22,10 +17,22 @@ const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label
     </div>
 );
 
+const BUCKET_NAME = 'collectibles';
+
+// FIX: Added missing WantlistFormModalProps interface.
+interface WantlistFormModalProps {
+    itemToEdit?: WantlistItem | null;
+    onClose: () => void;
+    onSuccess: () => void;
+}
+
 const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClose, onSuccess }) => {
     const [name, setName] = useState('');
     const [details, setDetails] = useState('');
     const [description, setDescription] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isDeletingImage, setIsDeletingImage] = useState(false);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,11 +46,30 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             setName(itemToEdit.name);
             setDetails(itemToEdit.details);
             setDescription(itemToEdit.description);
+            setImagePreview(itemToEdit.image_url || null);
         }
         return () => {
             isMounted.current = false;
         };
     }, [itemToEdit, isEditMode]);
+    
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
+            setImagePreview(URL.createObjectURL(selectedFile));
+            setIsDeletingImage(false);
+        }
+    };
+    
+    const handleRemoveImage = () => {
+        setFile(null);
+        setImagePreview(null);
+        if (itemToEdit?.image_url) {
+            setIsDeletingImage(true);
+        }
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,7 +80,50 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Пользователь не авторизован");
 
-            const itemData = { name, details, description, user_id: user.id };
+            let imageUrl = itemToEdit?.image_url || null;
+
+            // Handle image deletion
+            if (isDeletingImage && itemToEdit?.image_url) {
+                const oldImageUrl = new URL(itemToEdit.image_url);
+                const oldFilePath = oldImageUrl.pathname.split('/').slice(2).join('/');
+                await supabase.storage.from(BUCKET_NAME).remove([oldFilePath]);
+                imageUrl = null;
+            }
+            
+            // Handle new image upload
+            if (file) {
+                 // If there was an old image, remove it first
+                if (itemToEdit?.image_url && !isDeletingImage) {
+                    try {
+                        const oldImageUrl = new URL(itemToEdit.image_url);
+                        const oldFilePath = oldImageUrl.pathname.split('/').slice(2).join('/');
+                        await supabase.storage.from(BUCKET_NAME).remove([oldFilePath]);
+                    } catch (e) { console.error("Could not parse or delete old image:", e); }
+                }
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                const filePath = `${user.id}/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .upload(filePath, file);
+                
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from(BUCKET_NAME)
+                    .getPublicUrl(filePath);
+                imageUrl = publicUrl;
+            }
+
+            const itemData = { 
+                name, 
+                details, 
+                description, 
+                user_id: user.id,
+                image_url: imageUrl
+            };
 
             if (isEditMode) {
                 const { error: updateError } = await supabase
@@ -89,6 +158,30 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <InputField label="Название" id="name" type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="напр., Денарий Траяна" />
                     <InputField label="Детали" id="details" type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="напр., Римская империя, 98-117 гг." />
+                     <div>
+                        <label className="text-sm font-medium text-base-content/80">Изображение (необязательно)</label>
+                        <div className="relative mt-1 flex justify-center items-center w-full h-40 bg-base-100 border-2 border-base-300 border-dashed rounded-md">
+                            {imagePreview ? (
+                                <>
+                                    <img src={imagePreview} alt="Preview" className="h-full w-full object-contain p-2 rounded-md" />
+                                    <button 
+                                        type="button" 
+                                        onClick={handleRemoveImage}
+                                        className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/80 transition-colors"
+                                        aria-label="Удалить изображение"
+                                    >
+                                        <XCircleIcon className="w-6 h-6" />
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="text-center text-base-content/60">
+                                    <p>Нажмите для загрузки</p>
+                                    <p className="text-xs">PNG, JPG, WEBP</p>
+                                </div>
+                            )}
+                            <input type="file" onChange={handleFileChange} accept="image/*" className="absolute h-full w-full opacity-0 cursor-pointer"/>
+                        </div>
+                    </div>
                     <div>
                         <label htmlFor="description" className="text-sm font-medium text-base-content/80">Описание</label>
                         <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows={4} className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Опишите, что именно вы ищете..."></textarea>
