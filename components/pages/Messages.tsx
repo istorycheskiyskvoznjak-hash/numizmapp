@@ -5,6 +5,7 @@ import { Message, Profile as ProfileData } from '../../types';
 import ChatWindow from '../ChatWindow';
 import MessagesIcon from '../icons/MessagesIcon';
 import PinIcon from '../icons/PinIcon';
+import TrashIcon from '../icons/TrashIcon';
 
 interface MessagesProps {
   session: Session;
@@ -127,6 +128,11 @@ const Messages: React.FC<MessagesProps> = ({
             lastMessageTimestamp: lastMsg.created_at,
             lastMessageSenderId: lastMsg.sender_id,
         };
+    }).filter(p => {
+        // Filter out "deleted" chats
+        const isSystemDelete = p.lastMessage.startsWith(`[system:deleted_by_`);
+        const wasDeletedByMe = p.lastMessage === `[system:deleted_by_${session.user.id}]`;
+        return !(isSystemDelete && wasDeletedByMe);
     });
 
     setPartners(partnerProfiles);
@@ -178,7 +184,43 @@ const Messages: React.FC<MessagesProps> = ({
             table: 'messages',
         }, (payload) => {
             const newMessage = payload.new as Message;
-            if (newMessage.recipient_id === session.user.id || newMessage.sender_id === session.user.id) {
+            if (newMessage.recipient_id !== session.user.id && newMessage.sender_id !== session.user.id) {
+                return;
+            }
+
+            const partnerId = newMessage.sender_id === session.user.id 
+                ? newMessage.recipient_id 
+                : newMessage.sender_id;
+            
+            let needsRefetch = false;
+            
+            const isSystemDeleteByMe = newMessage.content === `[system:deleted_by_${session.user.id}]`;
+            if (isSystemDeleteByMe) {
+                setPartners(current => current.filter(p => p.id !== partnerId));
+                return;
+            }
+
+
+            setPartners(currentPartners => {
+                const partnerIndex = currentPartners.findIndex(p => p.id === partnerId);
+
+                if (partnerIndex !== -1) {
+                    const updatedPartner = {
+                        ...currentPartners[partnerIndex],
+                        lastMessage: newMessage.content,
+                        lastMessageTimestamp: newMessage.created_at,
+                        lastMessageSenderId: newMessage.sender_id,
+                    };
+                    const newPartners = [...currentPartners];
+                    newPartners[partnerIndex] = updatedPartner;
+                    return newPartners;
+                } else {
+                    needsRefetch = true;
+                    return currentPartners;
+                }
+            });
+
+            if (needsRefetch) {
                 fetchPartners();
             }
         })
@@ -204,6 +246,30 @@ const Messages: React.FC<MessagesProps> = ({
     localStorage.setItem(`pinnedChats_${session.user.id}`, JSON.stringify(newPinnedChats));
   };
   
+  const handleDeleteChat = async (e: React.MouseEvent, partnerId: string) => {
+    e.stopPropagation();
+    setOpenMenuId(null);
+    
+    const confirmed = window.confirm("Вы уверены, что хотите удалить этот чат? Вы больше не увидите его в списке, пока собеседник не напишет вам снова.");
+    if (!confirmed) return;
+
+    const { error } = await supabase.from('messages').insert({
+      sender_id: session.user.id,
+      recipient_id: partnerId,
+      content: `[system:deleted_by_${session.user.id}]`,
+    });
+
+    if (error) {
+      console.error("Error deleting chat:", error);
+      alert("Не удалось удалить чат.");
+    } else {
+      setPartners(currentPartners => currentPartners.filter(p => p.id !== partnerId));
+      if (selectedPartner?.id === partnerId) {
+          setSelectedPartner(null);
+      }
+    }
+  };
+
   const parseMessageContent = (content: string) => {
       const parts = content.split('$$ATTACHMENT::');
       return { text: parts[0] };
@@ -276,6 +342,13 @@ const Messages: React.FC<MessagesProps> = ({
                                             >
                                                 <PinIcon className="w-4 h-4" />
                                                 <span>{isPinned ? 'Открепить чат' : 'Закрепить чат'}</span>
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteChat(e, partner.id)}
+                                                className="w-full text-left px-4 py-2 flex items-center gap-3 text-sm text-red-500 hover:bg-red-500/10"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                                <span>Удалить чат</span>
                                             </button>
                                         </div>
                                     )}
