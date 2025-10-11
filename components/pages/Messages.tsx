@@ -253,10 +253,10 @@ const Messages: React.FC<MessagesProps> = ({
     e.stopPropagation();
     setOpenMenuId(null);
     
-    const confirmed = window.confirm("Вы уверены, что хотите очистить историю этого чата? Сообщения будут удалены у обоих собеседников.");
+    const confirmed = window.confirm("Вы уверены, что хотите очистить историю этого чата? Сообщения будут скрыты у обоих собеседников, но останутся в базе данных.");
     if (!confirmed) return;
 
-    const { error } = await supabase.rpc('clear_chat_history', {
+    const { error } = await supabase.rpc('soft_delete_chat_history', {
         partner_id: partnerId
     });
 
