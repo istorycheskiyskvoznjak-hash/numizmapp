@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Page, Theme, Collectible, Message } from './types';
+import { Page, Theme, Collectible, Message, Notification } from './types';
 import Layout from './components/Layout';
 import Feed from './components/pages/Feed';
 import Collection from './components/pages/Collection';
@@ -14,13 +14,14 @@ import Auth from './components/Auth';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
-  const [currentPage, setCurrentPage] = useState<Page>('Profile');
+  const [currentPage, setCurrentPage] = useState<Page>('Collection');
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [addItemModalState, setAddItemModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
   const [dataVersion, setDataVersion] = useState(0);
   const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ const App: React.FC = () => {
         setSession(session);
         if (!session) {
             setUnreadMessages({});
+            setNotifications([]);
         }
       }
     });
@@ -57,6 +59,7 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Message listener
   useEffect(() => {
     if (!session) return;
 
@@ -91,7 +94,6 @@ const App: React.FC = () => {
             filter: `recipient_id=eq.${session.user.id}`
         }, (payload) => {
             const newMessage = payload.new as Message;
-            // This check ensures we don't increment the count for our own messages if something is misconfigured.
             if (newMessage.sender_id !== session.user.id) {
                 setUnreadMessages(prev => {
                     const newCounts = { ...prev };
@@ -107,9 +109,69 @@ const App: React.FC = () => {
     };
   }, [session]);
 
+  // Notification listener
+  useEffect(() => {
+    if (!session) return;
+
+    const fetchNotifications = async () => {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select(`
+                *,
+                profiles (name, handle, avatar_url),
+                collectibles (name, image_url)
+            `)
+            .eq('recipient_id', session.user.id)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching notifications:", error);
+        } else if (isMounted.current) {
+            setNotifications(data as Notification[]);
+        }
+    };
+
+    fetchNotifications();
+    
+    const channel = supabase
+        .channel(`notifications-listener-${session.user.id}`)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_id=eq.${session.user.id}`
+        }, async (payload) => {
+            const newNotification = payload.new as Notification;
+            
+            // Fetch sender and collectible info for the new notification
+            const [profileRes, collectibleRes] = await Promise.all([
+                supabase.from('profiles').select('name, handle, avatar_url').eq('id', newNotification.sender_id).single(),
+                supabase.from('collectibles').select('name, image_url').eq('id', newNotification.collectible_id).single()
+            ]);
+            
+            const fullNotification = {
+                ...newNotification,
+                profiles: profileRes.data,
+                collectibles: collectibleRes.data
+            };
+            
+            setNotifications(prev => [fullNotification, ...prev]);
+        })
+        .subscribe();
+        
+    return () => {
+        supabase.removeChannel(channel);
+    };
+
+  }, [session]);
+
   const totalUnreadCount = useMemo(() => {
     return Object.values(unreadMessages).reduce((sum, count) => sum + count, 0);
   }, [unreadMessages]);
+  
+  const unreadNotificationsCount = useMemo(() => {
+    return notifications.filter(n => !n.is_read).length;
+  }, [notifications]);
 
   const markMessagesAsRead = useCallback(async (senderId: string) => {
     if (!session) return;
@@ -125,20 +187,49 @@ const App: React.FC = () => {
         console.error("Error marking messages as read in App:", error);
     } else {
         setUnreadMessages(prev => {
-            if (!prev[senderId]) return prev; // Avoid unnecessary state update
+            if (!prev[senderId]) return prev;
             return { ...prev, [senderId]: 0 };
         });
     }
   }, [session]);
 
+  const markNotificationsAsRead = useCallback(async () => {
+    if (!session || unreadNotificationsCount === 0) return;
+
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+
+    // Optimistically update UI
+    setNotifications(prev => prev.map(n => n.is_read ? n : { ...n, is_read: true }));
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .in('id', unreadIds);
+
+    if (error) {
+        console.error("Error marking notifications as read:", error);
+        // Revert UI update on error
+        setNotifications(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, is_read: false } : n));
+    }
+  }, [session, notifications, unreadNotificationsCount]);
+
+
   const refreshData = () => {
     setDataVersion(v => v + 1);
   };
 
+  const handleOpenAddItemModal = (initialAlbumId?: string | null) => {
+    setAddItemModalState({ isOpen: true, initialAlbumId });
+  };
+
+  const handleCloseAddItemModal = () => {
+    setAddItemModalState({ isOpen: false });
+  };
+
   const handleItemAdded = () => {
-    setIsAddItemModalOpen(false);
+    handleCloseAddItemModal();
     setCurrentPage('Collection');
-    refreshData(); // Trigger data refresh
+    refreshData();
   };
   
   const handleItemDeleted = () => {
@@ -149,7 +240,7 @@ const App: React.FC = () => {
   const handleStartConversation = (userId: string) => {
     setInitialMessageUserId(userId);
     setCurrentPage('Messages');
-    setSelectedItem(null); // Close modal if open
+    setSelectedItem(null);
   };
 
   const toggleTheme = () => {
@@ -160,17 +251,54 @@ const App: React.FC = () => {
     setSelectedItem(item);
   };
 
+  const handleItemClickById = async (itemId: string) => {
+    if (!itemId) return;
+    
+    const { data: itemData, error: itemError } = await supabase
+      .from('collectibles')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+      
+    if (itemError) {
+      console.error("Error fetching item by ID:", itemError.message);
+      return;
+    }
+
+    if (!itemData) {
+        console.warn(`Item with ID ${itemId} not found.`);
+        return;
+    }
+
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('handle')
+      .eq('id', itemData.owner_id)
+      .single();
+    
+    if (profileError) {
+        console.warn(`Could not fetch profile for owner ${itemData.owner_id}:`, profileError.message);
+    }
+    
+    const fullItem: Collectible = {
+      ...itemData,
+      profiles: profileData ? { handle: profileData.handle } : null,
+    };
+
+    setSelectedItem(fullItem);
+  };
+
   const renderPage = () => {
     if (!session) return null;
     switch (currentPage) {
       case 'Feed':
         return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} />;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal}/>;
       case 'Wantlist':
         return <Wantlist />;
       case 'Messages':
-        return <Messages session={session} initialUserId={initialMessageUserId} clearInitialUserId={() => setInitialMessageUserId(null)} unreadCounts={unreadMessages} markMessagesAsRead={markMessagesAsRead} />;
+        return <Messages session={session} initialUserId={initialMessageUserId} clearInitialUserId={() => setInitialMessageUserId(null)} unreadCounts={unreadMessages} markMessagesAsRead={markMessagesAsRead} onItemClick={handleItemClickById} />;
       case 'Profile':
         return <Profile session={session} onItemClick={handleItemClick}/>;
       default:
@@ -193,8 +321,11 @@ const App: React.FC = () => {
         setCurrentPage={setCurrentPage}
         theme={theme}
         toggleTheme={toggleTheme}
-        onAddItemClick={() => setIsAddItemModalOpen(true)}
-        unreadCount={totalUnreadCount}
+        unreadMessageCount={totalUnreadCount}
+        notifications={notifications}
+        unreadNotificationsCount={unreadNotificationsCount}
+        markNotificationsAsRead={markNotificationsAsRead}
+        onNotificationClick={handleItemClickById}
       >
         {renderPage()}
       </Layout>
@@ -205,12 +336,14 @@ const App: React.FC = () => {
           onClose={() => setSelectedItem(null)} 
           onDeleteSuccess={handleItemDeleted}
           onStartConversation={handleStartConversation}
+          onItemUpdate={refreshData}
         />
       )}
-      {isAddItemModalOpen && (
+      {addItemModalState.isOpen && (
         <AddItemModal 
-          onClose={() => setIsAddItemModalOpen(false)}
+          onClose={handleCloseAddItemModal}
           onSuccess={handleItemAdded}
+          initialAlbumId={addItemModalState.initialAlbumId}
         />
       )}
     </>

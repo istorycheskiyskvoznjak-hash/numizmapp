@@ -18,12 +18,21 @@ export interface Collectible {
   country: string;
   year: number;
   description: string;
-  image_url: string;
+  image_url: string | null;
   owner_id: string;
   created_at: string;
+  album_id?: string | null;
   profiles?: {
     handle: string;
   } | null;
+}
+
+export interface Album {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
 }
 
 export interface Comment {
@@ -65,4 +74,25 @@ export interface Message {
   content: string;
   created_at: string;
   is_read: boolean;
+}
+
+export interface Notification {
+  id: string;
+  created_at: string;
+  recipient_id: string;
+  sender_id: string;
+  type: 'WANTLIST_MATCH';
+  is_read: boolean;
+  collectible_id: string;
+  wantlist_item_name: string;
+  // Joined data for display
+  profiles?: { // Sender's profile
+    name: string;
+    handle: string;
+    avatar_url: string;
+  } | null;
+  collectibles?: { // Matched collectible
+    name: string;
+    image_url: string | null;
+  } | null;
 }

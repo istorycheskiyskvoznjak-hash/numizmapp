@@ -11,9 +11,10 @@ interface MessagesProps {
     clearInitialUserId: () => void;
     unreadCounts: Record<string, number>;
     markMessagesAsRead: (senderId: string) => Promise<void>;
+    onItemClick: (itemId: string) => void;
 }
 
-const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitialUserId, unreadCounts, markMessagesAsRead }) => {
+const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitialUserId, unreadCounts, markMessagesAsRead, onItemClick }) => {
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -54,6 +55,10 @@ const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitia
             markMessagesAsRead(selectedUser.id);
         }
     }, [selectedUser, unreadCounts, markMessagesAsRead]);
+    
+    const handleChatDeleted = () => {
+        setSelectedUser(null);
+    };
 
     const filteredProfiles = useMemo(() => {
         if (!searchTerm) return profiles;
@@ -107,7 +112,9 @@ const Messages: React.FC<MessagesProps> = ({ session, initialUserId, clearInitia
                     <ChatWindow
                         session={session}
                         otherUser={selectedUser}
-                        key={selectedUser.id} // Add key to force re-mount on user change
+                        key={selectedUser.id}
+                        onChatDeleted={handleChatDeleted}
+                        onItemClick={onItemClick}
                     />
                 ) : (
                     <div className="flex flex-col h-full">

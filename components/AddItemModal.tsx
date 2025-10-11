@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-// FIX: Import `Type` to define a JSON schema for the Gemini API call.
 import { GoogleGenAI, Type } from "@google/genai";
+import { Album } from '../types';
 
 interface AddItemModalProps {
   onClose: () => void;
   onSuccess: () => void;
+  initialAlbumId?: string | null;
 }
 
 const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, id, ...props }) => (
@@ -28,7 +29,6 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
     reader.onload = () => {
         const result = reader.result as string;
-        // remove "data:image/jpeg;base64," prefix
         resolve(result.split(',')[1]);
     };
     reader.onerror = (error) => reject(error);
@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> =>
 
 const BUCKET_NAME = 'collectibles';
 
-const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
+const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initialAlbumId }) => {
     const [name, setName] = useState('');
     const [category, setCategory] = useState<'coin' | 'stamp' | 'banknote'>('coin');
     const [country, setCountry] = useState('');
@@ -44,6 +44,8 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [albums, setAlbums] = useState<Album[]>([]);
+    const [selectedAlbumId, setSelectedAlbumId] = useState<string>(initialAlbumId || '');
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,24 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
       return () => {
         isMounted.current = false;
       };
+    }, []);
+
+    useEffect(() => {
+        const fetchAlbums = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data, error } = await supabase
+                .from('albums')
+                .select('*')
+                .eq('owner_id', user.id)
+                .order('name', { ascending: true });
+            if (error) {
+                console.error("Error fetching albums:", error);
+            } else if (isMounted.current) {
+                setAlbums(data);
+            }
+        };
+        fetchAlbums();
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +96,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(file);
             
-            // FIX: Using a more robust prompt and JSON schema for structured output.
             const prompt = `You are an expert numismatist and philatelist. Analyze this image of a collectible item. Provide information about it according to the specified JSON schema. If you cannot determine a field, make a reasonable guess or leave it as an empty string or null for the year.`;
 
             const response = await ai.models.generateContent({
@@ -103,7 +122,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
                 }
             });
 
-            // The response.text is now guaranteed to be a JSON string.
             const result = JSON.parse(response.text);
 
             if (isMounted.current) {
@@ -127,13 +145,41 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
             }
         }
     };
+    
+    const createWantlistNotifications = async (collectible: { id: string; name: string; owner_id: string }) => {
+        // Find users who want this item
+        const { data: matches, error: wantlistError } = await supabase
+            .from('wantlist')
+            .select('user_id')
+            .ilike('name', collectible.name) // Case-insensitive match on name
+            .neq('user_id', collectible.owner_id); // Don't notify the owner
+
+        if (wantlistError) {
+            console.error("Error checking wantlist for matches:", wantlistError);
+            return;
+        }
+
+        if (matches && matches.length > 0) {
+            const notificationsToInsert = matches.map(match => ({
+                recipient_id: match.user_id,
+                sender_id: collectible.owner_id,
+                type: 'WANTLIST_MATCH' as const,
+                collectible_id: collectible.id,
+                wantlist_item_name: collectible.name
+            }));
+            
+            const { error: notificationError } = await supabase
+                .from('notifications')
+                .insert(notificationsToInsert);
+
+            if (notificationError) {
+                console.error("Error creating wantlist notifications:", notificationError);
+            }
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!file) {
-            setError('Пожалуйста, загрузите изображение.');
-            return;
-        }
         
         setLoading(true);
         setError(null);
@@ -142,34 +188,48 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("User not found");
             
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `${user.id}/${fileName}`;
+            let imageUrl: string | null = null;
+            if (file) {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                const filePath = `${user.id}/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
-                .from(BUCKET_NAME)
-                .upload(filePath, file);
+                const { error: uploadError } = await supabase.storage
+                    .from(BUCKET_NAME)
+                    .upload(filePath, file);
 
-            if (uploadError) throw uploadError;
+                if (uploadError) throw uploadError;
 
-            const { data: { publicUrl } } = supabase.storage
-                .from(BUCKET_NAME)
-                .getPublicUrl(filePath);
+                const { data: { publicUrl } } = supabase.storage
+                    .from(BUCKET_NAME)
+                    .getPublicUrl(filePath);
+                imageUrl = publicUrl;
+            }
 
-            const { error: insertError } = await supabase
+            const itemToInsert = {
+                name,
+                category,
+                country,
+                year: parseInt(year) || new Date().getFullYear(),
+                description,
+                image_url: imageUrl,
+                owner_id: user.id,
+                album_id: selectedAlbumId === '' ? null : selectedAlbumId
+            };
+
+            const { data: newCollectible, error: insertError } = await supabase
                 .from('collectibles')
-                .insert({
-                    name,
-                    category,
-                    country,
-                    year: parseInt(year) || new Date().getFullYear(),
-                    description,
-                    image_url: publicUrl,
-                    owner_id: user.id,
-                });
+                .insert(itemToInsert)
+                .select()
+                .single();
 
             if (insertError) throw insertError;
             
+            // After successful insertion, check for wantlist matches and create notifications
+            if (newCollectible) {
+                await createWantlistNotifications(newCollectible);
+            }
+
             onSuccess();
         } catch (error: any) {
             if (isMounted.current) {
@@ -222,6 +282,15 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess }) => {
                              )}
                              {aiError && <p className="text-xs text-center text-red-500 mt-1">{aiError}</p>}
                         </div>
+                    </div>
+                     <div>
+                        <label htmlFor="album" className="text-sm font-medium text-base-content/80">Альбом (необязательно)</label>
+                        <select id="album" value={selectedAlbumId} onChange={e => setSelectedAlbumId(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                            <option value="">Без альбома</option>
+                            {albums.map(album => (
+                                <option key={album.id} value={album.id}>{album.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label htmlFor="description" className="text-sm font-medium text-base-content/80">Описание</label>

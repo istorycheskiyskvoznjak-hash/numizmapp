@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Collectible, Comment } from '../types';
+import { Collectible, Comment, Album } from '../types';
 import { supabase } from '../supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import TrashIcon from './icons/TrashIcon';
 import SendIcon from './icons/SendIcon';
 import MessagesIcon from './icons/MessagesIcon';
+import ImageIcon from './icons/ImageIcon';
 
 interface ItemDetailModalProps {
   item: Collectible;
@@ -12,13 +13,14 @@ interface ItemDetailModalProps {
   onClose: () => void;
   onDeleteSuccess: () => void;
   onStartConversation: (userId: string) => void;
+  onItemUpdate: () => void;
 }
 
 const INITIAL_VISIBLE_COUNT = 3;
 const FIRST_LOAD_MORE_COUNT = 4;
 const SUBSEQUENT_LOAD_MORE_COUNT = 6;
 
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation }) => {
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -27,6 +29,10 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [selectedAlbumId, setSelectedAlbumId] = useState(item.album_id || '');
+  const [albumUpdateStatus, setAlbumUpdateStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
 
   const isOwner = item.owner_id === session.user.id;
   
@@ -37,6 +43,48 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
       isMounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isOwner) {
+        const fetchAlbums = async () => {
+            const { data, error } = await supabase
+                .from('albums')
+                .select('*')
+                .eq('owner_id', session.user.id)
+                .order('name', { ascending: true });
+            if (error) {
+                console.error("Error fetching albums for modal:", error);
+            } else if (isMounted.current) {
+                setAlbums(data);
+            }
+        };
+        fetchAlbums();
+    }
+  }, [isOwner, session.user.id]);
+
+  const handleAlbumChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newAlbumId = e.target.value;
+    setSelectedAlbumId(newAlbumId);
+    setAlbumUpdateStatus('saving');
+
+    const { error } = await supabase
+      .from('collectibles')
+      .update({ album_id: newAlbumId === '' ? null : newAlbumId })
+      .eq('id', item.id);
+
+    if (isMounted.current) {
+        if (error) {
+            console.error("Error updating album:", error);
+            setAlbumUpdateStatus('idle'); // Or 'error'
+        } else {
+            setAlbumUpdateStatus('saved');
+            onItemUpdate(); // Refresh collection view
+            setTimeout(() => {
+                if(isMounted.current) setAlbumUpdateStatus('idle');
+            }, 2000);
+        }
+    }
+  };
 
   const fetchComments = useCallback(async (showAll: boolean = false) => {
     setLoadingComments(true);
@@ -181,8 +229,14 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-base-200 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="w-full md:w-1/2 flex-shrink-0 bg-base-300">
-          <img src={item.image_url} alt={item.name} className="h-full w-full object-cover md:rounded-l-2xl md:rounded-r-none rounded-t-2xl" />
+        <div className="w-full md:w-1/2 flex-shrink-0 bg-base-300 md:rounded-l-2xl md:rounded-r-none rounded-t-2xl">
+            {item.image_url ? (
+                <img src={item.image_url} alt={item.name} className="h-full w-full object-cover md:rounded-l-2xl md:rounded-r-none rounded-t-2xl" />
+            ) : (
+                <div className="h-full w-full flex items-center justify-center">
+                    <ImageIcon className="w-24 h-24 text-base-content/20" />
+                </div>
+            )}
         </div>
         <div className="w-full md:w-1/2 p-6 flex flex-col overflow-y-auto">
           <div className="flex-shrink-0">
@@ -190,6 +244,28 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
             <h1 className="text-3xl font-bold">{item.name}</h1>
             <p className="text-lg text-base-content/80 mt-1">{item.country}, {item.year}</p>
             <p className="mt-6 text-base-content/90">{item.description}</p>
+            {isOwner && (
+                <div className="mt-6">
+                    <label htmlFor="album" className="text-sm font-medium text-base-content/80">Альбом</label>
+                    <div className="flex items-center gap-2">
+                        <select
+                            id="album"
+                            value={selectedAlbumId}
+                            onChange={handleAlbumChange}
+                            className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        >
+                            <option value="">Без альбома</option>
+                            {albums.map(album => (
+                                <option key={album.id} value={album.id}>{album.name}</option>
+                            ))}
+                        </select>
+                        <div className="w-24 text-center text-sm">
+                            {albumUpdateStatus === 'saving' && <span className="text-base-content/70">Сохранение...</span>}
+                            {albumUpdateStatus === 'saved' && <span className="text-green-500 font-semibold">Сохранено!</span>}
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="mt-8 flex items-center gap-4">
               {isOwner ? (
                 <button 

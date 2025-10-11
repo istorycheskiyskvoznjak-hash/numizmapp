@@ -1,17 +1,23 @@
-import React from 'react';
-import { Page, Theme } from '../types';
+import React, { useState } from 'react';
+import { Page, Theme, Notification } from '../types';
 import LogoIcon from './icons/LogoIcon';
 import { supabase } from '../supabaseClient';
 import SunIcon from './icons/SunIcon';
 import MoonIcon from './icons/MoonIcon';
 import LogoutIcon from './icons/LogoutIcon';
+import BellIcon from './icons/BellIcon';
+import Notifications from './Notifications';
 
 interface HeaderProps {
   currentPage: Page;
   setCurrentPage: (page: Page) => void;
   theme: Theme;
   toggleTheme: () => void;
-  unreadCount: number;
+  unreadMessageCount: number;
+  notifications: Notification[];
+  unreadNotificationsCount: number;
+  markNotificationsAsRead: () => void;
+  onNotificationClick: (itemId: string) => void;
 }
 
 const pageTitles: Record<Page, string> = {
@@ -43,13 +49,34 @@ const NavLink: React.FC<{
   );
 };
 
-const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, toggleTheme, unreadCount }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    currentPage, 
+    setCurrentPage, 
+    theme, 
+    toggleTheme, 
+    unreadMessageCount,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationsAsRead,
+    onNotificationClick
+}) => {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+  
+  const handleToggleNotifications = () => {
+    setIsNotificationsOpen(prev => {
+        const newIsOpen = !prev;
+        if (newIsOpen) {
+            markNotificationsAsRead();
+        }
+        return newIsOpen;
+    });
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-base-100/80 backdrop-blur-md z-10">
+    <header className="fixed top-0 left-0 right-0 bg-base-100/80 backdrop-blur-md z-20">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
@@ -61,9 +88,9 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, tog
               {(['Feed', 'Collection', 'Wantlist', 'Messages', 'Profile'] as Page[]).map(page => (
                 <NavLink key={page} page={page} currentPage={currentPage} setCurrentPage={setCurrentPage}>
                   {pageTitles[page]}
-                  {page === 'Messages' && unreadCount > 0 && (
+                  {page === 'Messages' && unreadMessageCount > 0 && (
                     <span className="ml-2 inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 leading-none text-center whitespace-nowrap align-middle font-bold bg-primary text-black rounded-full text-xs">
-                        {unreadCount > 99 ? '99+' : unreadCount}
+                        {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
                     </span>
                   )}
                 </NavLink>
@@ -76,6 +103,29 @@ const Header: React.FC<HeaderProps> = ({ currentPage, setCurrentPage, theme, tog
                 <LogoutIcon className="w-4 h-4" />
                 <span>Выйти</span>
             </button>
+            <div className="relative">
+                 <button
+                  onClick={handleToggleNotifications}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors"
+                  aria-label="Открыть уведомления"
+                >
+                  <BellIcon className="w-5 h-5" />
+                   {unreadNotificationsCount > 0 && (
+                    <span className="absolute top-1 right-1 inline-flex items-center justify-center h-4 w-4 text-xs font-bold text-white bg-red-500 rounded-full border-2 border-base-100">
+                    </span>
+                  )}
+                </button>
+                {isNotificationsOpen && (
+                    <Notifications
+                        notifications={notifications}
+                        onClose={() => setIsNotificationsOpen(false)}
+                        onNotificationClick={(itemId) => {
+                            onNotificationClick(itemId);
+                            setIsNotificationsOpen(false);
+                        }}
+                    />
+                )}
+            </div>
             <button
               onClick={toggleTheme}
               className="flex items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors"

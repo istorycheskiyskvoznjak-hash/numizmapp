@@ -77,7 +77,7 @@ const Wantlist: React.FC = () => {
                 <h1 className="text-3xl font-bold">Вишлист</h1>
                 <button 
                     onClick={handleOpenAddModal}
-                    className="bg-base-200 hover:bg-base-300 font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2"
+                    className="bg-primary hover:scale-105 text-black font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200"
                 >
                     <PlusIcon className="w-4 h-4" />
                     <span>Добавить в вишлист</span>
