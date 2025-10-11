@@ -1,5 +1,5 @@
 import React from 'react';
-import { Profile as ProfileData, Collectible, Page } from '../types';
+import { Profile as ProfileData, Collectible } from '../types';
 import { Session } from '@supabase/supabase-js';
 import Profile from './pages/Profile'; // Import the refactored, reusable Profile component
 
@@ -28,8 +28,8 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
 }) => {
     
     // These handlers will first close the modal, then navigate in the main app view.
-    const handleStartChat = () => {
-        onStartConversation(profile.id);
+    const handleStartChat = (userId: string) => {
+        onStartConversation(userId);
         onClose();
     };
 

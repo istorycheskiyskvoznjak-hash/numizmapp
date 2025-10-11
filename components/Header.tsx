@@ -26,6 +26,8 @@ const pageTitles: Record<Page, string> = {
   Wantlist: 'Вишлист',
   Messages: 'Сообщения',
   Profile: 'Профиль',
+  // FIX: Added 'PublicProfile' to match the Page type and fix the error.
+  PublicProfile: 'Профиль',
 };
 
 const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
@@ -35,6 +37,8 @@ const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
   Wantlist: HeartIcon,
   Messages: MessagesIcon,
   Profile: UserCircleIcon,
+  // FIX: Added 'PublicProfile' to match the Page type and fix the error.
+  PublicProfile: UserCircleIcon,
 };
 
 

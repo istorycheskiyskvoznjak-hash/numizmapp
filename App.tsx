@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Page, Theme, Collectible, Message, Profile as ProfileData, Album } from './types';
+import { Page, Theme, Collectible, Message, Profile as ProfileData } from './types';
 import Layout from './components/Layout';
 import Feed from './components/pages/Feed';
 import Collection from './components/pages/Collection';
@@ -11,21 +11,36 @@ import AddItemModal from './components/AddItemModal';
 import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import Auth from './components/Auth';
-import PublicProfileModal from './components/PublicProfileModal';
 import SubscriptionFeed from './components/pages/SubscriptionFeed';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
-  const [currentPage, setCurrentPage] = useState<Page>('Collection');
+  const [currentPage, _setCurrentPage] = useState<Page>('Collection');
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [addItemModalState, setAddItemModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
   const [dataVersion, setDataVersion] = useState(0);
   const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
-  const [viewingProfile, setViewingProfile] = useState<ProfileData | null>(null);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [initialAlbumId, setInitialAlbumId] = useState<string | null>(null);
   const isMounted = useRef(true);
+
+  // New navigation handler to centralize page changes and state cleanup
+  const setCurrentPage = (page: Page) => {
+    if (page !== 'PublicProfile') {
+      setViewingProfileId(null);
+      if (window.location.search.includes('profileId')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+    // When navigating away from a specific collection album view, clear it
+    if (page !== 'Collection') {
+      setInitialAlbumId(null);
+    }
+    _setCurrentPage(page);
+  };
+
 
   useEffect(() => {
     isMounted.current = true;
@@ -61,27 +76,34 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-    useEffect(() => {
+  // Updated to navigate to full page instead of modal
+  useEffect(() => {
     const handleProfileLink = async () => {
       const params = new URLSearchParams(window.location.search);
-      const profileId = params.get('profileId');
+      const profileHandle = params.get('profileId');
 
-      if (profileId && session) {
+      if (profileHandle && session) {
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('handle', profileId)
+          .select('id')
+          .eq('handle', profileHandle)
           .single();
         
         if (error) {
-          console.error("Error fetching public profile:", error);
-        } else if (isMounted.current) {
-          setViewingProfile(data as ProfileData);
+          console.error("Error fetching public profile ID:", error);
+        } else if (isMounted.current && data) {
+          if (data.id === session.user.id) {
+            setCurrentPage('Profile');
+          } else {
+            setViewingProfileId(data.id);
+            _setCurrentPage('PublicProfile'); // Use direct setter to avoid cleanup
+          }
         }
       }
     };
     handleProfileLink();
   }, [session]);
+
 
   // Message listener
   useEffect(() => {
@@ -189,10 +211,17 @@ const App: React.FC = () => {
     setSelectedItem(null);
   };
 
-  const handleStartConversationFromModal = (userId: string) => {
-    setViewingProfile(null);
-    handleStartConversation(userId);
+  const handleViewProfile = (profile: ProfileData) => {
+    if (!session) return;
+    if (profile.id === session.user.id) {
+      setCurrentPage('Profile');
+    } else {
+      setViewingProfileId(profile.id);
+      _setCurrentPage('PublicProfile'); // Use direct setter to avoid state cleanup
+    }
+    setSelectedItem(null);
   };
+
 
   const toggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -200,12 +229,6 @@ const App: React.FC = () => {
   
   const handleItemClick = (item: Collectible) => {
     setSelectedItem(item);
-  };
-  
-  const handleClosePublicProfile = () => {
-    setViewingProfile(null);
-    // Clear URL params to avoid re-opening on refresh
-    window.history.replaceState({}, document.title, window.location.pathname);
   };
   
   const handleViewAlbum = (albumId: string) => {
@@ -268,7 +291,7 @@ const App: React.FC = () => {
         return <SubscriptionFeed 
             session={session} 
             onItemClick={handleItemClick}
-            onViewProfile={(profile) => setViewingProfile(profile as ProfileData)}
+            onViewProfile={handleViewProfile}
             onNavigateToFeed={() => setCurrentPage('Feed')}
           />;
       case 'Collection':
@@ -283,7 +306,7 @@ const App: React.FC = () => {
             unreadCounts={unreadMessages} 
             markMessagesAsRead={markMessagesAsRead} 
             onItemClick={handleItemClickById} 
-            onViewProfile={(profile) => setViewingProfile(profile as ProfileData)} />;
+            onViewProfile={handleViewProfile} />;
       case 'Profile':
         return <Profile 
             session={session} 
@@ -291,6 +314,21 @@ const App: React.FC = () => {
             onViewAlbum={handleViewAlbum} 
             onViewCollection={handleViewCollection}
             onViewWantlist={handleViewWantlist}
+        />;
+      case 'PublicProfile':
+        if (!viewingProfileId) {
+            setCurrentPage('Feed'); // Fallback
+            return null;
+        }
+        return <Profile
+            session={session}
+            profileId={viewingProfileId}
+            onItemClick={handleItemClick}
+            onViewAlbum={handleViewAlbum}
+            onViewCollection={handleViewCollection}
+            onViewWantlist={handleViewWantlist}
+            onStartConversation={handleStartConversation}
+            onBack={() => setCurrentPage('Feed')} // Simple back navigation
         />;
       default:
         return <Profile 
@@ -337,27 +375,6 @@ const App: React.FC = () => {
           onClose={handleCloseAddItemModal}
           onSuccess={handleItemAdded}
           initialAlbumId={addItemModalState.initialAlbumId}
-        />
-      )}
-       {viewingProfile && (
-        <PublicProfileModal
-          profile={viewingProfile}
-          session={session}
-          onClose={handleClosePublicProfile}
-          onItemClick={handleItemClick}
-          onStartConversation={handleStartConversationFromModal}
-          onViewAlbum={(albumId) => {
-              handleClosePublicProfile();
-              handleViewAlbum(albumId);
-          }}
-          onViewCollection={() => {
-              handleClosePublicProfile();
-              handleViewCollection();
-          }}
-          onViewWantlist={() => {
-              handleClosePublicProfile();
-              handleViewWantlist();
-          }}
         />
       )}
     </>

@@ -10,14 +10,12 @@ import QRCodeModal from '../QRCodeModal';
 import AlbumCard from '../AlbumCard';
 import LayoutGridIcon from '../icons/LayoutGridIcon';
 import RectangleGroupIcon from '../icons/RectangleGroupIcon';
-import CircleStackIcon from '../icons/CircleStackIcon';
 import HeartIcon from '../icons/HeartIcon';
-import UserGroupIcon from '../icons/UserGroupIcon';
 import MapPinIcon from '../icons/MapPinIcon';
-import WantlistItemCard from '../WantlistItemCard';
 import UserPlusIcon from './../icons/UserPlusIcon';
 import UserMinusIcon from './../icons/UserMinusIcon';
 import MessagesIcon from './../icons/MessagesIcon';
+import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 
 interface ProfileProps {
   session: Session;
@@ -29,42 +27,20 @@ interface ProfileProps {
   onViewWantlist: () => void;
   // Only for public profiles
   onStartConversation?: (userId: string) => void;
+  onBack?: () => void;
 }
 
-interface StatCardProps {
+interface ProfileStatProps {
     value: number;
     label: string;
-    icon: React.ReactNode;
-    onClick?: () => void;
 }
+const ProfileStat: React.FC<ProfileStatProps> = ({ value, label }) => (
+    <div className="text-center">
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-sm opacity-80">{label}</p>
+    </div>
+);
 
-const StatCard: React.FC<StatCardProps> = ({ value, label, icon, onClick }) => {
-    const content = (
-        <>
-            <div className="flex items-center justify-center gap-3">
-                {icon}
-                <p className="text-4xl font-bold">{value}</p>
-            </div>
-            <p className="text-sm opacity-80 mt-2">{label}</p>
-        </>
-    );
-
-    const commonClasses = "bg-black/25 backdrop-blur-md rounded-xl p-4 text-center border border-white/10 shadow-lg transition-all duration-300 hover:bg-black/40 hover:border-white/20 flex flex-col justify-center";
-
-    if (onClick) {
-        return (
-            <button onClick={onClick} className={`${commonClasses} cursor-pointer w-full`}>
-                {content}
-            </button>
-        );
-    }
-
-    return (
-        <div className={commonClasses}>
-            {content}
-        </div>
-    );
-};
 
 const Profile: React.FC<ProfileProps> = ({ 
     session, 
@@ -73,7 +49,8 @@ const Profile: React.FC<ProfileProps> = ({
     onViewAlbum, 
     onViewCollection, 
     onViewWantlist,
-    onStartConversation
+    onStartConversation,
+    onBack
 }) => {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [collection, setCollection] = useState<Collectible[]>([]);
@@ -217,18 +194,26 @@ const Profile: React.FC<ProfileProps> = ({
 
     return (
         <>
+            {!isOwnProfile && onBack && (
+                <div className="mb-6">
+                    <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors">
+                        <ArrowLeftIcon className="w-5 h-5" />
+                        <span>Назад</span>
+                    </button>
+                </div>
+            )}
             <div className="space-y-12">
                 <div className="bg-base-200 p-6 rounded-2xl relative overflow-hidden">
                     {profile.header_image_url && (
                         <img 
                             src={profile.header_image_url} 
                             alt="Profile header" 
-                            className="absolute inset-0 w-full h-full object-cover filter blur-[1px]" 
+                            className="absolute inset-0 w-full h-full object-cover" 
                         />
                     )}
                     <div className={`absolute inset-0 ${profile.header_image_url ? 'bg-black/60' : ''}`}></div>
 
-                    <div className={`relative space-y-6 ${profile.header_image_url ? 'text-white' : ''}`}>
+                    <div className={`relative ${profile.header_image_url ? 'text-white' : ''}`}>
                         <div className="flex flex-col md:flex-row items-start gap-6">
                             <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className={`w-24 h-24 rounded-lg object-cover flex-shrink-0 border-4 shadow-lg ${profile.header_image_url ? 'border-white/20' : 'border-base-content/10'}`} />
                             
@@ -280,88 +265,94 @@ const Profile: React.FC<ProfileProps> = ({
                                 )}
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <StatCard value={collection.length} label="Предметы" icon={<CircleStackIcon className="w-9 h-9 opacity-80" />} onClick={isOwnProfile && collection.length > 0 ? onViewCollection : undefined} />
-                            <StatCard value={albums.length} label="Альбомы" icon={<RectangleGroupIcon className="w-9 h-9 opacity-80" />} onClick={isOwnProfile && albums.length > 0 ? onViewCollection : undefined} />
-                            <StatCard value={wantlistCount} label="В вишлисте" icon={<HeartIcon className="w-9 h-9 opacity-80" />} onClick={isOwnProfile && wantlistCount > 0 ? onViewWantlist : undefined} />
-                            <StatCard value={followersCount} label="Подписчики" icon={<UserGroupIcon className="w-9 h-9 opacity-80" />} />
+                         <div className={`mt-6 pt-6 border-t grid grid-cols-2 md:grid-cols-4 gap-4 ${profile.header_image_url ? 'border-white/20' : 'border-base-300'}`}>
+                            <ProfileStat value={collection.length} label="Предметы" />
+                            <ProfileStat value={albums.length} label="Альбомы" />
+                            <ProfileStat value={wantlistCount} label="В вишлисте" />
+                            <ProfileStat value={followersCount} label="Подписчики" />
                         </div>
                     </div>
                 </div>
                 
-                <div className="space-y-12">
-                    {showcaseAlbums.length > 0 && (
-                        <div id="profile-albums-section">
-                            <h3 className="text-xl font-semibold mb-4 text-base-content/80 flex items-center gap-2">
-                                <RectangleGroupIcon className="w-5 h-5" />
-                                <span>Альбомы</span>
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {showcaseAlbums.map(album => {
-                                    const itemsInAlbum = collection.filter(item => item.album_id === album.id);
-                                    const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
-                                    return (
-                                        <AlbumCard 
-                                            key={album.id}
-                                            album={album}
-                                            itemCount={itemsInAlbum.length}
-                                            coverImageUrl={latestItemWithImage?.image_url || null}
-                                            onClick={() => isOwnProfile && onViewAlbum(album.id)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                <div>
+                     <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
+                        <LayoutGridIcon className="w-8 h-8 text-primary"/>
+                        <span>Витрина</span>
+                    </h2>
 
-                    {wantlistItems.length > 0 && (
-                         <div id="profile-wantlist-section">
-                            <h3 className="text-xl font-semibold mb-4 text-base-content/80 flex items-center gap-2">
-                                <HeartIcon className="w-5 h-5" />
-                                <span>Недавнее в вишлисте</span>
-                            </h3>
-                            <div className="space-y-4">
-                                {wantlistItems.map(item => (
-                                    <WantlistItemCard 
-                                        key={item.id} 
-                                        item={item}
-                                    />
-                                ))}
-                            </div>
-                            {wantlistCount > 4 && isOwnProfile && (
-                                <div className="mt-8 text-center">
-                                    <button onClick={onViewWantlist} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                        Перейти к вишлисту
-                                    </button>
+                    <div className="space-y-12">
+                        {showcaseAlbums.length > 0 && (
+                            <div id="profile-albums-section">
+                                <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    <RectangleGroupIcon className="w-6 h-6 text-base-content/70" />
+                                    <span>Альбомы</span>
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {showcaseAlbums.map(album => {
+                                        const itemsInAlbum = collection.filter(item => item.album_id === album.id);
+                                        const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
+                                        return (
+                                            <AlbumCard 
+                                                key={album.id}
+                                                album={album}
+                                                itemCount={itemsInAlbum.length}
+                                                coverImageUrl={latestItemWithImage?.image_url || null}
+                                                onClick={() => isOwnProfile && onViewAlbum(album.id)}
+                                            />
+                                        );
+                                    })}
                                 </div>
-                            )}
-                        </div>
-                    )}
+                            </div>
+                        )}
 
-                    {showcaseItems.length > 0 && (
-                        <div id="profile-items-section">
-                            <h3 className="text-xl font-semibold mb-4 text-base-content/80">{showcaseAlbums.length > 0 ? 'Предметы без альбома' : 'Недавние предметы'}</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                                {showcaseItems.map(item => (
-                                    <ItemCard key={item.id} item={item} onItemClick={onItemClick} />
-                                ))}
-                            </div>
-                             {unassignedItems.length > 10 && isOwnProfile && (
-                                <div className="mt-8 text-center">
-                                    <button onClick={onViewCollection} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
-                                        Перейти ко всей коллекции
-                                    </button>
+                        {wantlistItems.length > 0 && (
+                             <div id="profile-wantlist-section">
+                                <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    <HeartIcon className="w-6 h-6 text-base-content/70" />
+                                    <span>Недавнее в вишлисте</span>
+                                </h3>
+                                <div className="space-y-2">
+                                    {wantlistItems.map(item => (
+                                        <div key={item.id} className="bg-base-200 p-4 rounded-lg font-semibold">
+                                            {item.name}
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-                    )}
-                    
-                    {showcaseAlbums.length === 0 && showcaseItems.length === 0 && wantlistItems.length === 0 && (
-                        <div className="text-center py-16 bg-base-200 rounded-2xl">
-                            <h2 className="text-xl font-bold">Витрина пуста</h2>
-                            <p className="text-base-content/70 mt-2">Предметы из коллекции и альбомы пользователя будут отображаться здесь.</p>
-                        </div>
-                    )}
+                                {wantlistCount > 4 && isOwnProfile && (
+                                    <div className="mt-8 text-center">
+                                        <button onClick={onViewWantlist} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
+                                            Перейти к вишлисту
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showcaseItems.length > 0 && (
+                            <div id="profile-items-section">
+                                <h3 className="text-2xl font-bold mb-6">{showcaseAlbums.length > 0 ? 'Предметы без альбома' : 'Недавние предметы'}</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                                    {showcaseItems.map(item => (
+                                        <ItemCard key={item.id} item={item} onItemClick={onItemClick} />
+                                    ))}
+                                </div>
+                                 {unassignedItems.length > 10 && isOwnProfile && (
+                                    <div className="mt-8 text-center">
+                                        <button onClick={onViewCollection} className="bg-base-200 hover:bg-secondary font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto">
+                                            Перейти ко всей коллекции
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {showcaseAlbums.length === 0 && showcaseItems.length === 0 && wantlistItems.length === 0 && (
+                            <div className="text-center py-16 bg-base-200 rounded-2xl">
+                                <h2 className="text-xl font-bold">Витрина пуста</h2>
+                                <p className="text-base-content/70 mt-2">Предметы из коллекции и альбомы пользователя будут отображаться здесь.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
             {isOwnProfile && isEditModalOpen && (
