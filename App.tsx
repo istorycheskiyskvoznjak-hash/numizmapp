@@ -118,14 +118,14 @@ const App: React.FC = () => {
             .from('notifications')
             .select(`
                 *,
-                profiles (name, handle, avatar_url),
-                collectibles (name, image_url)
+                profiles:sender_id (name, handle, avatar_url),
+                collectibles:collectible_id (name, image_url)
             `)
             .eq('recipient_id', session.user.id)
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error("Error fetching notifications:", error);
+            console.error("Error fetching notifications:", error.message);
         } else if (isMounted.current) {
             setNotifications(data as Notification[]);
         }

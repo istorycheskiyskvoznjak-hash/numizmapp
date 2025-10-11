@@ -128,10 +128,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
                 if (result.category && ['coin', 'stamp', 'banknote'].includes(result.category)) {
                     setCategory(result.category);
                 }
-                setName(result.name || '');
-                setCountry(result.country || '');
+                setName(result.name?.trim() || '');
+                setCountry(result.country?.trim() || '');
                 setYear(String(result.year || ''));
-                setDescription(result.description || '');
+                setDescription(result.description?.trim() || '');
             }
 
         } catch (err: any) {
@@ -150,7 +150,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
         // Find users who want this item
         const { data: matches, error: wantlistError } = await supabase
             .from('wantlist')
-            .select('user_id')
+            .select('user_id, name') // Select the wantlist item name
             .ilike('name', collectible.name) // Case-insensitive match on name
             .neq('user_id', collectible.owner_id); // Don't notify the owner
 
@@ -165,7 +165,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
                 sender_id: collectible.owner_id,
                 type: 'WANTLIST_MATCH' as const,
                 collectible_id: collectible.id,
-                wantlist_item_name: collectible.name
+                wantlist_item_name: match.name // Use the matched wantlist item name
             }));
             
             const { error: notificationError } = await supabase
@@ -207,11 +207,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
             }
 
             const itemToInsert = {
-                name,
+                name: name.trim(),
                 category,
-                country,
+                country: country.trim(),
                 year: parseInt(year) || new Date().getFullYear(),
-                description,
+                description: description.trim(),
                 image_url: imageUrl,
                 owner_id: user.id,
                 album_id: selectedAlbumId === '' ? null : selectedAlbumId
