@@ -29,29 +29,55 @@ const WantlistMatchesModal: React.FC<WantlistMatchesModalProps> = ({ item, onClo
         const fetchMatches = async () => {
             setLoading(true);
             
-            const trimmedName = item.name.trim();
-            if (!trimmedName) {
+            const searchTerms = item.name.trim();
+            if (!searchTerms) {
                 setLoading(false);
                 return;
             }
 
-            const { data, error } = await supabase
+            // Step 1: Find matching wantlist items from other users
+            const { data: wantlistData, error: wantlistError } = await supabase
                 .from('wantlist')
-                .select(`
-                    *,
-                    profiles:user_id (name, handle, avatar_url)
-                `)
-                .ilike('name', trimmedName)
-                .neq('user_id', item.owner_id);
+                .select('*')
+                .neq('user_id', item.owner_id)
+                .ilike('name', `%${searchTerms}%`);
 
-            if (isMounted.current) {
-                if (error) {
-                    console.error("Error fetching wantlist matches:", error);
-                } else {
-                    setMatches(data as Match[]);
-                }
+            if (!isMounted.current) return;
+
+            if (wantlistError) {
+                console.error("Error fetching wantlist items:", wantlistError.message);
+                setMatches([]);
                 setLoading(false);
+                return;
             }
+
+            if (!wantlistData || wantlistData.length === 0) {
+                setMatches([]);
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Get user IDs and fetch their profiles
+            const userIds = [...new Set(wantlistData.map(w => w.user_id))];
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, name, handle, avatar_url')
+                .in('id', userIds);
+
+            if (profilesError) {
+                console.error("Error fetching profiles for matches:", profilesError.message);
+                const formattedMatches = wantlistData.map(w => ({ ...w, profiles: null }));
+                setMatches(formattedMatches as Match[]);
+            } else {
+                // Step 3: Combine the data
+                const profilesMap = new Map(profilesData.map(p => [p.id, { name: p.name, handle: p.handle, avatar_url: p.avatar_url }]));
+                const formattedMatches = wantlistData.map(wantlistItem => ({
+                    ...wantlistItem,
+                    profiles: profilesMap.get(wantlistItem.user_id) || null
+                }));
+                setMatches(formattedMatches as Match[]);
+            }
+            setLoading(false);
         };
 
         fetchMatches();
