@@ -30,6 +30,8 @@ const pageTitles: Record<Page, string> = {
   Messages: 'Сообщения',
   Profile: 'Профиль',
   PublicProfile: 'Профиль',
+  // FIX: Added missing 'PublicWantlist' property to match the Page type.
+  PublicWantlist: 'Вишлист',
 };
 
 const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
@@ -40,6 +42,8 @@ const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
   Messages: MessagesIcon,
   Profile: UserCircleIcon,
   PublicProfile: UserCircleIcon,
+  // FIX: Added missing 'PublicWantlist' property to match the Page type.
+  PublicWantlist: HeartIcon,
 };
 
 

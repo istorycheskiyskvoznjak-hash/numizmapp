@@ -1,6 +1,6 @@
 export type Theme = 'light' | 'dark';
 
-export type Page = 'Feed' | 'Collection' | 'Wantlist' | 'Messages' | 'Profile' | 'SubscriptionFeed' | 'PublicProfile';
+export type Page = 'Feed' | 'Collection' | 'Wantlist' | 'Messages' | 'Profile' | 'SubscriptionFeed' | 'PublicProfile' | 'PublicWantlist';
 
 export interface Profile {
   id: string;

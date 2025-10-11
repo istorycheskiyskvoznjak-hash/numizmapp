@@ -52,7 +52,7 @@ const App: React.FC = () => {
     if (page !== 'Collection') {
       setInitialAlbumId(null);
     }
-    if (page !== 'Wantlist') {
+    if (page !== 'Wantlist' && page !== 'PublicWantlist') {
       setInitialWantlistListId(null);
     }
   };
@@ -302,7 +302,12 @@ const App: React.FC = () => {
       } else {
         setInitialWantlistListId(null);
       }
-      setCurrentPage('Wantlist');
+      
+      if (viewingProfileId) {
+        _setCurrentPage('PublicWantlist');
+      } else {
+        setCurrentPage('Wantlist');
+      }
   };
 
   const handleItemClickById = async (itemId: string) => {
@@ -359,6 +364,7 @@ const App: React.FC = () => {
         return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
       case 'Wantlist':
         return <Wantlist 
+            session={session}
             initialListId={initialWantlistListId}
             clearInitialListId={() => setInitialWantlistListId(null)}
           />;
@@ -393,6 +399,18 @@ const App: React.FC = () => {
             onViewWantlist={handleViewWantlist}
             onStartConversation={handleStartConversation}
             onBack={() => setCurrentPage(previousPage)} // Use the stored previous page
+        />;
+      case 'PublicWantlist':
+        if (!viewingProfileId) {
+            setCurrentPage('Feed'); // Fallback
+            return null;
+        }
+        return <Wantlist
+            session={session}
+            profileId={viewingProfileId}
+            initialListId={initialWantlistListId}
+            clearInitialListId={() => setInitialWantlistListId(null)}
+            onBack={() => _setCurrentPage('PublicProfile')}
         />;
       default:
         return <Profile 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { WantlistItem, WantlistList } from '../../types';
+import { WantlistItem, WantlistList, Profile as ProfileData } from '../../types';
 import PlusIcon from '../icons/PlusIcon';
 import WantlistFormModal from '../WantlistFormModal';
 import { supabase } from '../../supabaseClient';
@@ -9,18 +9,23 @@ import WantlistListFormModal from '../WantlistListFormModal';
 import WantlistListCard from '../WantlistListCard';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 import FolderPlusIcon from '../icons/FolderPlusIcon';
+import { Session } from '@supabase/supabase-js';
 
 type ClientWantlistItem = WantlistItem & { is_transitioning?: boolean };
 
 interface WantlistProps {
+  session: Session;
   initialListId: string | null;
   clearInitialListId: () => void;
+  profileId?: string | null;
+  onBack?: () => void;
 }
 
-const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }) => {
+const Wantlist: React.FC<WantlistProps> = ({ session, initialListId, clearInitialListId, profileId, onBack }) => {
   const [lists, setLists] = useState<WantlistList[]>([]);
   const [items, setItems] = useState<ClientWantlistItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
 
   const [selectedList, setSelectedList] = useState<WantlistList | null>(null);
   
@@ -30,17 +35,36 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [editingList, setEditingList] = useState<WantlistList | null>(null);
 
+  const isOwnProfile = !profileId;
+
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const userIdToFetch = profileId || session.user.id;
+
+    if (!userIdToFetch) {
         setLoading(false);
         return;
     }
+    
+    if (profileId) {
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', profileId).single();
+      setProfile(profileData as ProfileData);
+    } else {
+      setProfile(null);
+    }
+
+    const listsQuery = supabase.from('wantlist_lists').select('*').eq('user_id', userIdToFetch).order('created_at', { ascending: false });
+    if (!isOwnProfile) {
+      listsQuery.eq('is_public', true);
+    }
+    
+    // RLS will handle item visibility based on list publicity
+    const itemsQuery = supabase.from('wantlist').select('*').eq('user_id', userIdToFetch).order('created_at', { ascending: false });
+
 
     const [listsRes, itemsRes] = await Promise.all([
-      supabase.from('wantlist_lists').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('wantlist').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      listsQuery,
+      itemsQuery
     ]);
     
     if (listsRes.error) console.error('Error fetching wantlist lists:', listsRes.error);
@@ -56,7 +80,7 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
     }
 
     setLoading(false);
-  }, [initialListId, clearInitialListId]);
+  }, [profileId, session.user.id, initialListId, clearInitialListId, isOwnProfile]);
 
   useEffect(() => {
     fetchData();
@@ -64,11 +88,13 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
 
   // Item Modal Handlers
   const handleOpenAddItemModal = () => {
+    if (!isOwnProfile) return;
     setEditingItem(null);
     setIsItemModalOpen(true);
   };
 
   const handleOpenEditItemModal = (item: WantlistItem) => {
+    if (!isOwnProfile) return;
     setEditingItem(item);
     setIsItemModalOpen(true);
   };
@@ -80,11 +106,13 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
 
   // List Modal Handlers
   const handleOpenAddListModal = () => {
+    if (!isOwnProfile) return;
     setEditingList(null);
     setIsListModalOpen(true);
   };
 
   const handleOpenEditListModal = (list: WantlistList) => {
+    if (!isOwnProfile) return;
     setEditingList(list);
     setIsListModalOpen(true);
   };
@@ -96,6 +124,7 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
 
   // CRUD Operations
   const handleDeleteItem = async (itemId: string) => {
+    if (!isOwnProfile) return;
     const confirmed = window.confirm("Вы уверены, что хотите удалить этот элемент?");
     if (confirmed) {
         const { error } = await supabase.from('wantlist').delete().eq('id', itemId);
@@ -109,6 +138,7 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
   };
 
   const handleDeleteList = async (list: WantlistList) => {
+    if (!isOwnProfile) return;
     const itemsInList = items.filter(i => i.list_id === list.id);
     const confirmationMessage = itemsInList.length > 0
         ? `Вы уверены, что хотите удалить список "${list.name}"? Все ${itemsInList.length} предметов в нем также будут удалены.`
@@ -134,6 +164,7 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
   };
 
   const handleToggleFound = (itemId: string, currentStatus: boolean) => {
+    if (!isOwnProfile) return;
     setItems(prevItems => prevItems.map(item =>
         item.id === itemId ? { ...item, is_found: !currentStatus, is_transitioning: true } : item
     ));
@@ -176,13 +207,15 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
                     </button>
                     <h1 className="text-3xl font-bold">{selectedList.name}</h1>
                 </div>
-                <button 
-                    onClick={handleOpenAddItemModal}
-                    className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                >
-                    <PlusIcon className="w-4 h-4" />
-                    <span>Добавить предмет</span>
-                </button>
+                {isOwnProfile && (
+                  <button 
+                      onClick={handleOpenAddItemModal}
+                      className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                  >
+                      <PlusIcon className="w-4 h-4" />
+                      <span>Добавить предмет</span>
+                  </button>
+                )}
             </div>
             {itemsInSelectedList.length === 0 ? (
                 <div className="text-center py-16 bg-base-200 rounded-2xl">
@@ -196,15 +229,15 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
                             key={item.id} 
                             item={item}
                             isTransitioning={item.is_transitioning}
-                            onEdit={() => handleOpenEditItemModal(item)}
-                            onDelete={() => handleDeleteItem(item.id)}
-                            onToggleFound={() => handleToggleFound(item.id, !!item.is_found)}
+                            onEdit={isOwnProfile ? () => handleOpenEditItemModal(item) : undefined}
+                            onDelete={isOwnProfile ? () => handleDeleteItem(item.id) : undefined}
+                            onToggleFound={isOwnProfile ? () => handleToggleFound(item.id, !!item.is_found) : undefined}
                         />
                     ))}
                 </div>
             )}
         </div>
-        {isItemModalOpen && (
+        {isOwnProfile && isItemModalOpen && (
             <WantlistFormModal
                 itemToEdit={editingItem}
                 onClose={() => setIsItemModalOpen(false)}
@@ -221,19 +254,28 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
     <>
         <div>
             <div className="flex justify-between items-center mb-8">
-                <h1 className="text-3xl font-bold">Мои вишлисты</h1>
-                <button 
-                    onClick={handleOpenAddListModal}
-                    className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                >
-                    <FolderPlusIcon className="w-4 h-4" />
-                    <span>Создать список</span>
-                </button>
+                <div className="flex items-center gap-4">
+                    {onBack && (
+                        <button onClick={onBack} className="p-2 rounded-full bg-base-200 hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100" aria-label="Назад к профилю">
+                            <ArrowLeftIcon className="w-6 h-6" />
+                        </button>
+                    )}
+                    <h1 className="text-3xl font-bold">{isOwnProfile ? 'Мои вишлисты' : `Вишлисты ${profile?.handle || ''}`}</h1>
+                </div>
+                {isOwnProfile && (
+                  <button 
+                      onClick={handleOpenAddListModal}
+                      className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                  >
+                      <FolderPlusIcon className="w-4 h-4" />
+                      <span>Создать список</span>
+                  </button>
+                )}
             </div>
             {lists.length === 0 ? (
                  <div className="text-center py-16 bg-base-200 rounded-2xl">
-                    <h2 className="text-xl font-bold">Создайте свой первый вишлист</h2>
-                    <p className="text-base-content/70 mt-2">Организуйте свои цели по разным спискам.</p>
+                    <h2 className="text-xl font-bold">{isOwnProfile ? 'Создайте свой первый вишлист' : 'У пользователя нет публичных вишлистов'}</h2>
+                    <p className="text-base-content/70 mt-2">{isOwnProfile ? 'Организуйте свои цели по разным спискам.' : ''}</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -245,15 +287,16 @@ const Wantlist: React.FC<WantlistProps> = ({ initialListId, clearInitialListId }
                                 list={list}
                                 items={listItems}
                                 onClick={() => setSelectedList(list)}
-                                onEdit={() => handleOpenEditListModal(list)}
-                                onDelete={() => handleDeleteList(list)}
+                                onEdit={isOwnProfile ? () => handleOpenEditListModal(list) : undefined}
+                                onDelete={isOwnProfile ? () => handleDeleteList(list) : undefined}
+                                isOwnProfile={isOwnProfile}
                            />
                         )
                     })}
                 </div>
             )}
         </div>
-        {isListModalOpen && (
+        {isOwnProfile && isListModalOpen && (
             <WantlistListFormModal
                 listToEdit={editingList}
                 onClose={() => setIsListModalOpen(false)}
