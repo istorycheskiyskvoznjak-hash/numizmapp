@@ -105,10 +105,10 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
             <div className="space-y-12">
                 <div className="bg-base-200 p-8 rounded-2xl">
                     <div className="flex flex-col sm:flex-row items-start space-x-6">
-                        <img src={profile.avatar_url} alt={profile.name} className="w-24 h-24 rounded-lg object-cover mb-4 sm:mb-0" />
+                        <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-24 h-24 rounded-lg object-cover mb-4 sm:mb-0" />
                         <div className="flex-grow">
-                            <h1 className="text-3xl font-bold">{profile.name} <span className="text-base-content/60">@{profile.handle}</span></h1>
-                            <p className="text-base-content/70">{profile.location}</p>
+                            <h1 className="text-3xl font-bold">{profile.name || 'Безымянный'} <span className="text-base-content/60">@{profile.handle || 'user'}</span></h1>
+                            <p className="text-base-content/70">{profile.location || 'Местоположение не указано'}</p>
                         </div>
                         <div className="flex space-x-2 mt-4 sm:mt-0">
                             <button onClick={() => setIsEditModalOpen(true)} className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2">

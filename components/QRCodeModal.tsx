@@ -8,7 +8,7 @@ interface QRCodeModalProps {
 }
 
 const QRCodeModal: React.FC<QRCodeModalProps> = ({ profile, onClose }) => {
-  const profileUrl = `${window.location.origin}?profileId=${profile.id}`;
+  const profileUrl = `${window.location.origin}?profileId=${profile.handle}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
     profileUrl
   )}&size=256x256&bgcolor=1A1F29&color=DCE0E8&qzone=1`;

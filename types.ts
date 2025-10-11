@@ -4,9 +4,9 @@ export type Page = 'Feed' | 'Collection' | 'Wantlist' | 'Messages' | 'Profile';
 
 export interface Profile {
   id: string;
-  name: string;
-  handle: string;
-  location: string;
+  name: string | null;
+  handle: string | null;
+  location: string | null;
   avatar_url: string;
   followers: number;
 }
@@ -23,7 +23,7 @@ export interface Collectible {
   created_at: string;
   album_id?: string | null;
   profiles?: {
-    handle: string;
+    handle: string | null;
   } | null;
 }
 
@@ -42,8 +42,8 @@ export interface Comment {
   owner_id: string;
   collectible_id: string;
   profiles: {
-    name: string;
-    handle: string;
+    name: string | null;
+    handle: string | null;
     avatar_url: string;
   } | null;
 }
@@ -76,22 +76,20 @@ export interface Message {
   is_read: boolean;
 }
 
-// FIX: Added the missing 'Notification' type. This type is used in the Notifications component.
+// FIX: Added the missing 'Notification' type to resolve import error.
 export interface Notification {
   id: string;
-  created_at: string;
-  sender_id: string;
-  recipient_id: string;
   collectible_id: string;
+  sender_id: string;
   wantlist_item_name: string;
-  is_read: boolean;
+  created_at: string;
   profiles: {
-    name: string;
-    handle: string;
+    name: string | null;
+    handle: string | null;
     avatar_url: string;
   } | null;
   collectibles: {
-    name: string;
     image_url: string | null;
+    name: string;
   } | null;
 }

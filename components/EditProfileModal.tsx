@@ -61,7 +61,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                 const filePath = `${profile.id}/avatar.${fileExt}`;
                 
                 const { error: uploadError } = await supabase.storage
-                    .from('item_images') 
+                    .from('avatars') 
                     .upload(filePath, avatarFile, {
                         cacheControl: '3600',
                         upsert: true, // Overwrite existing file to save space
@@ -69,12 +69,12 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
 
                 if (uploadError) throw uploadError;
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('item_images')
+                const { data } = supabase.storage
+                    .from('avatars')
                     .getPublicUrl(filePath);
                 
                 // Add a timestamp to bust CDN cache if the URL remains the same
-                updatedAvatarUrl = `${publicUrl}?t=${new Date().getTime()}`;
+                updatedAvatarUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
             }
             
             const { error: updateError } = await supabase
@@ -126,9 +126,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                             className="hidden" 
                         />
                     </div>
-                    <InputField label="Имя" id="name" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                    <InputField label="Никнейм (@)" id="handle" type="text" value={handle} onChange={e => setHandle(e.target.value)} required />
-                    <InputField label="Местоположение" id="location" type="text" value={location} onChange={e => setLocation(e.target.value)} />
+                    <InputField label="Имя" id="name" type="text" value={name || ''} onChange={e => setName(e.target.value)} required />
+                    <InputField label="Никнейм (@)" id="handle" type="text" value={handle || ''} onChange={e => setHandle(e.target.value)} required />
+                    <InputField label="Местоположение" id="location" type="text" value={location || ''} onChange={e => setLocation(e.target.value)} />
                     
                     {error && <p className="text-sm text-center text-red-500">{error}</p>}
                     

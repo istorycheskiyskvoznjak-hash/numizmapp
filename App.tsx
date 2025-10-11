@@ -68,7 +68,7 @@ const App: React.FC = () => {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', profileId)
+          .eq('handle', profileId)
           .single();
         
         if (error) {
@@ -247,7 +247,14 @@ const App: React.FC = () => {
       case 'Wantlist':
         return <Wantlist />;
       case 'Messages':
-        return <Messages session={session} initialUserId={initialMessageUserId} clearInitialUserId={() => setInitialMessageUserId(null)} unreadCounts={unreadMessages} markMessagesAsRead={markMessagesAsRead} onItemClick={handleItemClickById} />;
+        return <Messages 
+            session={session} 
+            initialUserId={initialMessageUserId} 
+            clearInitialUserId={() => setInitialMessageUserId(null)} 
+            unreadCounts={unreadMessages} 
+            markMessagesAsRead={markMessagesAsRead} 
+            onItemClick={handleItemClickById} 
+            onViewProfile={(profile) => setViewingProfile(profile as ProfileData)} />;
       case 'Profile':
         return <Profile session={session} onItemClick={handleItemClick}/>;
       default:
