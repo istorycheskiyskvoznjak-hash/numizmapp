@@ -10,12 +10,8 @@ import FolderPlusIcon from '../icons/FolderPlusIcon';
 import PlusIcon from '../icons/PlusIcon';
 import AlbumCard from '../AlbumCard';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
-
-const SearchIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-  </svg>
-);
+import WantlistMatchesModal from '../WantlistMatchesModal';
+import SearchIcon from '../icons/SearchIcon';
 
 const GlobeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -35,6 +31,7 @@ interface CollectionProps {
   dataVersion: number;
   refreshData: () => void;
   openAddItemModal: (initialAlbumId?: string | null) => void;
+  onStartConversation: (userId: string) => void;
 }
 
 const FilterButton: React.FC<{
@@ -201,7 +198,7 @@ const Pagination: React.FC<{
   );
 };
 
-const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal }) => {
+const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation }) => {
   const [userItems, setUserItems] = useState<Collectible[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -209,6 +206,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
   const [isCreateAlbumModalOpen, setIsCreateAlbumModalOpen] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
 
   const initialFilters = {
     category: 'all' as 'all' | 'coin' | 'stamp' | 'banknote',
@@ -400,7 +398,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
               <div className="mb-8 text-sm text-base-content/70">Найдено: {itemsInSelectedAlbum.length}</div>
               {itemsInSelectedAlbum.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>)}
+                    {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
                 </div>
               ) : (
                 <div className="text-center py-16 bg-base-200 rounded-2xl">
@@ -442,7 +440,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                     <h2 className="text-2xl font-bold mb-6">Без альбома</h2>
                     <div className="mb-8 text-sm text-base-content/70">Найдено: {filteredUnassignedItems.length}</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                        {paginatedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>)}
+                        {paginatedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
                     </div>
                     {totalPages > 1 && (
                       <div className="mt-8 flex justify-center">
@@ -471,6 +469,13 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                   refreshData();
               }}
           />
+      )}
+      {checkingItem && (
+        <WantlistMatchesModal
+            item={checkingItem}
+            onClose={() => setCheckingItem(null)}
+            onStartConversation={onStartConversation}
+        />
       )}
     </>
   );

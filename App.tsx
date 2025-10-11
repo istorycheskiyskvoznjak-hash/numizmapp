@@ -294,7 +294,7 @@ const App: React.FC = () => {
       case 'Feed':
         return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal}/>;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation}/>;
       case 'Wantlist':
         return <Wantlist />;
       case 'Messages':

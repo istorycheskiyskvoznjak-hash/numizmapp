@@ -146,38 +146,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
         }
     };
     
-    const createWantlistNotifications = async (collectible: { id: string; name: string; owner_id: string }) => {
-        // Find users who want this item
-        const { data: matches, error: wantlistError } = await supabase
-            .from('wantlist')
-            .select('user_id, name') // Select the wantlist item name
-            .ilike('name', collectible.name) // Case-insensitive match on name
-            .neq('user_id', collectible.owner_id); // Don't notify the owner
-
-        if (wantlistError) {
-            console.error("Error checking wantlist for matches:", wantlistError);
-            return;
-        }
-
-        if (matches && matches.length > 0) {
-            const notificationsToInsert = matches.map(match => ({
-                recipient_id: match.user_id,
-                sender_id: collectible.owner_id,
-                type: 'WANTLIST_MATCH' as const,
-                collectible_id: collectible.id,
-                wantlist_item_name: match.name // Use the matched wantlist item name
-            }));
-            
-            const { error: notificationError } = await supabase
-                .from('notifications')
-                .insert(notificationsToInsert);
-
-            if (notificationError) {
-                console.error("Error creating wantlist notifications:", notificationError);
-            }
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -225,11 +193,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
 
             if (insertError) throw insertError;
             
-            // After successful insertion, check for wantlist matches and create notifications
-            if (newCollectible) {
-                await createWantlistNotifications(newCollectible);
-            }
-
             onSuccess();
         } catch (error: any) {
             if (isMounted.current) {
