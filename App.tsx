@@ -12,6 +12,7 @@ import { supabase } from './supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import Auth from './components/Auth';
 import PublicProfileModal from './components/PublicProfileModal';
+import SubscriptionFeed from './components/pages/SubscriptionFeed';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -118,7 +119,8 @@ const App: React.FC = () => {
         }, (payload) => {
             const newMessage = payload.new as Message;
             if (newMessage.sender_id !== session.user.id) {
-                setUnreadMessages(prev => {
+                // FIX: Operator '+' cannot be applied to types 'unknown' and 'unknown'. Explicitly typing `prev` resolves the type inference issue.
+                setUnreadMessages((prev: Record<string, number>) => {
                     const newCounts = { ...prev };
                     newCounts[newMessage.sender_id] = (newCounts[newMessage.sender_id] || 0) + 1;
                     return newCounts;
@@ -185,6 +187,11 @@ const App: React.FC = () => {
     setInitialMessageUserId(userId);
     setCurrentPage('Messages');
     setSelectedItem(null);
+  };
+
+  const handleStartConversationFromModal = (userId: string) => {
+    setViewingProfile(null);
+    handleStartConversation(userId);
   };
 
   const toggleTheme = () => {
@@ -256,7 +263,14 @@ const App: React.FC = () => {
     if (!session) return null;
     switch (currentPage) {
       case 'Feed':
-        return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} session={session} />;
+        return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} session={session} setCurrentPage={setCurrentPage} />;
+      case 'SubscriptionFeed':
+        return <SubscriptionFeed 
+            session={session} 
+            onItemClick={handleItemClick}
+            onViewProfile={(profile) => setViewingProfile(profile as ProfileData)}
+            onNavigateToFeed={() => setCurrentPage('Feed')}
+          />;
       case 'Collection':
         return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
       case 'Wantlist':
@@ -331,7 +345,19 @@ const App: React.FC = () => {
           session={session}
           onClose={handleClosePublicProfile}
           onItemClick={handleItemClick}
-          onStartConversation={handleStartConversation}
+          onStartConversation={handleStartConversationFromModal}
+          onViewAlbum={(albumId) => {
+              handleClosePublicProfile();
+              handleViewAlbum(albumId);
+          }}
+          onViewCollection={() => {
+              handleClosePublicProfile();
+              handleViewCollection();
+          }}
+          onViewWantlist={() => {
+              handleClosePublicProfile();
+              handleViewWantlist();
+          }}
         />
       )}
     </>

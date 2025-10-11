@@ -21,6 +21,7 @@ interface HeaderProps {
 
 const pageTitles: Record<Page, string> = {
   Feed: 'Лента',
+  SubscriptionFeed: 'Лента',
   Collection: 'Коллекция',
   Wantlist: 'Вишлист',
   Messages: 'Сообщения',
@@ -29,6 +30,7 @@ const pageTitles: Record<Page, string> = {
 
 const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
   Feed: FeedIcon,
+  SubscriptionFeed: FeedIcon,
   Collection: RectangleGroupIcon,
   Wantlist: HeartIcon,
   Messages: MessagesIcon,
@@ -42,7 +44,7 @@ const NavLink: React.FC<{
   setCurrentPage: (page: Page) => void;
   children: React.ReactNode;
 }> = ({ page, currentPage, setCurrentPage, children }) => {
-  const isActive = currentPage === page;
+  const isActive = currentPage === page || (page === 'Feed' && currentPage === 'SubscriptionFeed');
   const Icon = pageIcons[page];
   return (
     <button
