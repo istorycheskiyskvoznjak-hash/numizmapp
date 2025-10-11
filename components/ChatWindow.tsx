@@ -44,6 +44,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
         const { data, error } = await supabase
             .from('messages')
             .select('*')
+            .is('hidden_at', null) // <-- Only fetch visible messages
             .or(`and(sender_id.eq.${session.user.id},recipient_id.eq.${recipient.id}),and(sender_id.eq.${recipient.id},recipient_id.eq.${session.user.id})`)
             .order('created_at', { ascending: true });
         

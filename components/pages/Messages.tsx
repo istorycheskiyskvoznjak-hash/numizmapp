@@ -78,6 +78,7 @@ const Messages: React.FC<MessagesProps> = ({
     const { data: messages, error: messagesError } = await supabase
         .from('messages')
         .select('*')
+        .is('hidden_at', null) // <-- Only fetch visible messages
         .or(`sender_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`)
         .order('created_at', { ascending: false });
 
@@ -263,14 +264,15 @@ const Messages: React.FC<MessagesProps> = ({
       console.error("Error clearing chat history:", error);
       alert("Не удалось очистить историю чата.");
     }
-    // No need to manually update state, the real-time listener will handle the new system message
+    // The real-time listener will refetch partners upon receiving the system message,
+    // which is simpler than manually updating the state here.
   };
 
   const renderLastMessage = (partner: ChatPartner) => {
     if (partner.lastMessage.startsWith('[system:history_cleared_by_handle:')) {
         const handle = partner.lastMessage.split(':')[2].slice(0, -1);
         const isMe = partner.lastMessageSenderId === session.user.id;
-        return <span className="italic text-base-content/60">{isMe ? 'Вы очистили историю' : `История очищена`}</span>;
+        return <span className="italic text-base-content/60">{isMe ? 'Вы очистили историю' : `История очищена @${handle}`}</span>;
     }
     
     // Legacy support for old deleted messages, just in case
