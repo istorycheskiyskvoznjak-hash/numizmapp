@@ -96,7 +96,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(file);
             
-            const prompt = `You are an expert numismatist and philatelist. Analyze this image of a collectible item. Provide information about it according to the specified JSON schema. If you cannot determine a field, make a reasonable guess or leave it as an empty string or null for the year.`;
+            const prompt = `Ты — эксперт по нумизматике и филателии. Проанализируй это изображение коллекционного предмета. Предоставь информацию о нем в соответствии с указанной схемой JSON. Все поля в ответе должны быть на русском языке. Если ты не можешь определить какое-либо поле, сделай разумное предположение или оставь его пустым (для строковых полей) или null (для года).`;
 
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -111,11 +111,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ onClose, onSuccess, initial
                     responseSchema: {
                         type: Type.OBJECT,
                         properties: {
-                            name: { type: Type.STRING, description: "The name of the collectible item." },
-                            country: { type: Type.STRING, description: "The country of origin." },
-                            year: { type: Type.NUMBER, description: "The year of issue. Can be null if unknown." },
-                            description: { type: Type.STRING, description: "A brief description of the item." },
-                            category: { type: Type.STRING, description: "The category: 'coin', 'stamp', or 'banknote'." }
+                            name: { type: Type.STRING, description: "Название коллекционного предмета на русском языке." },
+                            country: { type: Type.STRING, description: "Страна происхождения на русском языке." },
+                            year: { type: Type.NUMBER, description: "Год выпуска. Может быть null, если неизвестен." },
+                            description: { type: Type.STRING, description: "Краткое описание предмета на русском языке." },
+                            category: { type: Type.STRING, description: "Категория: 'coin', 'stamp' или 'banknote'." }
                         },
                         required: ['name', 'country', 'year', 'description', 'category']
                     }
