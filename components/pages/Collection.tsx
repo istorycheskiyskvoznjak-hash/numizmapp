@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Collectible, Album } from '../../types';
 import ItemCard from '../ItemCard';
@@ -99,6 +101,7 @@ interface CollectionProps {
   onStartConversation: (userId: string) => void;
   initialAlbumId: string | null;
   clearInitialAlbumId: () => void;
+  onParameterSearch: (field: string, value: any, displayValue?: string) => void;
 }
 
 const FilterButton: React.FC<{
@@ -136,7 +139,7 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
 }) => {
     const [showAdvanced, setShowAdvanced] = useState(false);
 
-    const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
     };
@@ -193,6 +196,23 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
                         <label htmlFor="yearTo" className="text-sm font-medium text-base-content/80 mb-2 block">Год до</label>
                         <InputWithIcon id="yearTo" name="yearTo" type="number" value={filters.yearTo} onChange={handleFilterChange} placeholder="117" icon={<CalendarIcon className="w-4 h-4 text-base-content/40" />} />
                     </div>
+                    <div>
+                        <label htmlFor="material" className="text-sm font-medium text-base-content/80 mb-2 block">Материал</label>
+                         <select id="material" name="material" value={filters.material} onChange={handleFilterChange} className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                            <option value="">Любой</option>
+                            <option value="gold">Золото</option>
+                            <option value="silver">Серебро</option>
+                            <option value="copper">Медь</option>
+                            <option value="bronze">Бронза</option>
+                            <option value="iron">Железо</option>
+                            <option value="paper">Бумага</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label htmlFor="mint" className="text-sm font-medium text-base-content/80 mb-2 block">Монетный двор</label>
+                        <InputWithIcon id="mint" name="mint" type="text" value={filters.mint} onChange={handleFilterChange} placeholder="напр., Санкт-Петербургский" icon={<SearchIcon className="w-4 h-4 text-base-content/40" />} />
+                    </div>
                 </div>
             )}
             <div className="flex justify-between items-center border-t border-base-300 pt-3 mt-4">
@@ -209,7 +229,7 @@ const FilterPanel = ({ filters, setFilters, initialFilters }: {
     );
 };
 
-const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation, initialAlbumId, clearInitialAlbumId }) => {
+const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation, initialAlbumId, clearInitialAlbumId, onParameterSearch }) => {
   const [userItems, setUserItems] = useState<Collectible[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,7 +245,9 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
     query: '',
     country: '',
     yearFrom: '',
-    yearTo: ''
+    yearTo: '',
+    material: '',
+    mint: ''
   };
 
   const [albumFilters, setAlbumFilters] = useState(initialFilters);
@@ -317,6 +339,13 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
     const yearTo = parseInt(filters.yearTo);
     if (!isNaN(yearTo)) {
         filteredItems = filteredItems.filter(item => item.year <= yearTo);
+    }
+    if (filters.material) {
+        filteredItems = filteredItems.filter(item => item.material === filters.material);
+    }
+    if (filters.mint) {
+        const lowerMint = filters.mint.toLowerCase();
+        filteredItems = filteredItems.filter(item => item.mint && item.mint.toLowerCase().includes(lowerMint));
     }
     return filteredItems;
   };
@@ -442,7 +471,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                 <>
                   {itemsInSelectedAlbum.length > 0 ? (
                     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
+                        {itemsInSelectedAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} isOwner={true} onParameterSearch={onParameterSearch}/>)}
                     </div>
                   ) : (
                     <div className="mt-8 text-center py-16 bg-base-200 rounded-2xl">
@@ -488,7 +517,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                             })}
                         </div>
                         {visibleAlbumCount < albums.length && (
-                            <div className="mt-8 text-center">
+                            <div className="mt-12 text-center">
                                 <LoadMoreButton onClick={handleLoadMoreAlbums} loading={false}>
                                     Загрузить еще {Math.min(ALBUMS_TO_LOAD, albums.length - visibleAlbumCount)}
                                 </LoadMoreButton>
@@ -515,10 +544,10 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} />)}
+                                {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} isOwner={true} onParameterSearch={onParameterSearch}/>)}
                             </div>
                             {visibleUnassignedCount < filteredUnassignedItems.length && (
-                              <div className="mt-8 flex justify-center">
+                              <div className="mt-12 flex justify-center">
                                 <LoadMoreButton onClick={handleLoadMoreUnassigned} loading={false}>
                                     Загрузить еще {Math.min(UNASSIGNED_TO_LOAD, filteredUnassignedItems.length - visibleUnassignedCount)}
                                 </LoadMoreButton>

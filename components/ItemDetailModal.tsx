@@ -16,13 +16,53 @@ interface ItemDetailModalProps {
   onStartConversation: (userId: string) => void;
   onItemUpdate: () => void;
   onEditItem: (item: Collectible) => void;
+  onParameterSearch?: (field: string, value: any, displayValue?: string) => void;
 }
+
+const CATEGORY_TRANSLATIONS: Record<string, string> = {
+  coin: 'Монета',
+  stamp: 'Марка',
+  banknote: 'Банкнота',
+};
+
+const MATERIAL_TRANSLATIONS: Record<string, string> = {
+    gold: 'Золото',
+    silver: 'Серебро',
+    copper: 'Медь',
+    bronze: 'Бронза',
+    iron: 'Железо',
+    paper: 'Бумага',
+    other: 'Другое',
+};
 
 const INITIAL_VISIBLE_COUNT = 3;
 const FIRST_LOAD_MORE_COUNT = 4;
 const SUBSEQUENT_LOAD_MORE_COUNT = 6;
 
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate, onEditItem }) => {
+const ParameterButton: React.FC<{
+    field: string;
+    value: string;
+    displayValue?: string;
+    onClick?: (field: string, value: string, displayValue?: string) => void;
+    className?: string;
+    // FIX: Added missing 'children' property to the component's props type to resolve multiple compilation errors.
+    children: React.ReactNode;
+}> = ({ field, value, displayValue, onClick, className, children }) => {
+    if (!onClick) {
+        return <span className={className}>{children}</span>;
+    }
+    return (
+        <button 
+            onClick={() => onClick(field, value, displayValue || value)}
+            className={`hover:underline hover:text-primary transition-colors ${className}`}
+        >
+            {children}
+        </button>
+    );
+};
+
+
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate, onEditItem, onParameterSearch }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -254,10 +294,36 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
         </div>
         <div className="w-full md:w-1/2 p-6 flex flex-col overflow-y-auto">
           <div className="flex-shrink-0">
-            <span className="inline-block bg-base-300 rounded-full px-3 py-1 text-sm font-semibold mb-2">{item.category}</span>
+            <ParameterButton
+              field="category"
+              value={item.category}
+              displayValue={CATEGORY_TRANSLATIONS[item.category] || item.category}
+              onClick={onParameterSearch}
+              className="inline-block bg-base-300 rounded-full px-3 py-1 text-sm font-semibold mb-2"
+            >
+              {CATEGORY_TRANSLATIONS[item.category] || item.category}
+            </ParameterButton>
             <h1 className="text-3xl font-bold">{item.name}</h1>
-            <p className="text-lg text-base-content/80 mt-1">{item.country}, {item.year}</p>
-            <p className="mt-6 text-base-content/90">{item.description}</p>
+            <p className="text-lg text-base-content/80 mt-1">
+                <ParameterButton field="country" value={item.country} onClick={onParameterSearch}>{item.country}</ParameterButton>,
+                {' '}
+                <ParameterButton field="year" value={String(item.year)} onClick={onParameterSearch}>{item.year}</ParameterButton>
+            </p>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t border-b border-base-300 py-3">
+                {item.material && MATERIAL_TRANSLATIONS[item.material] && (
+                    <div><span className="font-bold text-base-content/70">Материал: </span><ParameterButton field="material" value={item.material} displayValue={MATERIAL_TRANSLATIONS[item.material]} onClick={onParameterSearch}>{MATERIAL_TRANSLATIONS[item.material]}</ParameterButton></div>
+                )}
+                {item.mint && (
+                    <div><span className="font-bold text-base-content/70">Монетный двор: </span><ParameterButton field="mint" value={item.mint} onClick={onParameterSearch}>{item.mint}</ParameterButton></div>
+                )}
+                 {item.grade && (
+                    <div><span className="font-bold text-base-content/70">Состояние: </span><span>{item.grade}</span></div>
+                )}
+                 {item.rarity && (
+                    <div><span className="font-bold text-base-content/70">Редкость: </span><span>{item.rarity}</span></div>
+                )}
+            </div>
+            <p className="mt-4 text-base-content/90">{item.description}</p>
             {isOwner && (
                 <div className="mt-6">
                     <label htmlFor="album" className="text-sm font-medium text-base-content/80">Альбом</label>

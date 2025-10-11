@@ -19,6 +19,7 @@ import WantlistItemCard from '../WantlistItemCard';
 import WantlistFormModal from '../WantlistFormModal';
 import PlusIcon from '../icons/PlusIcon';
 import WantlistListCard from '../WantlistListCard';
+import BookmarkIcon from '../icons/BookmarkIcon';
 
 
 interface ProfileProps {
@@ -29,6 +30,7 @@ interface ProfileProps {
   onViewAlbum: (albumId: string) => void;
   onViewCollection: () => void;
   onViewWantlist: (listId?: string) => void;
+  onParameterSearch: (field: string, value: any, displayValue?: string) => void;
   // Only for public profiles
   onStartConversation?: (userId: string) => void;
   onBack?: () => void;
@@ -62,6 +64,7 @@ const Profile: React.FC<ProfileProps> = ({
     onViewAlbum,
     onViewCollection,
     onViewWantlist,
+    onParameterSearch,
     onStartConversation,
     onBack,
 }) => {
@@ -70,13 +73,14 @@ const Profile: React.FC<ProfileProps> = ({
     const [albums, setAlbums] = useState<Album[]>([]);
     const [wantlistItems, setWantlistItems] = useState<WantlistItem[]>([]);
     const [wantlistLists, setWantlistLists] = useState<WantlistList[]>([]);
+    const [savedItems, setSavedItems] = useState<Collectible[]>([]);
     const [followers, setFollowers] = useState(0);
     const [following, setFollowing] = useState(0);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-    const [view, setView] = useState<'collection' | 'wantlist'>('collection');
+    const [view, setView] = useState<'collection' | 'wantlist' | 'saved'>('collection');
     
     const isMounted = useRef(true);
 
@@ -142,6 +146,53 @@ const Profile: React.FC<ProfileProps> = ({
                 ? supabase.from('wantlist_lists').select('*').eq('user_id', userId).order('name', { ascending: true })
                 : supabase.from('wantlist_lists').select('*').eq('user_id', userId).eq('is_public', true).order('name', { ascending: true })
         ]);
+
+        if (isOwnProfile) {
+            const { data: savedRelations, error: savedError } = await supabase
+              .from('saved_collectibles')
+              .select('collectible_id')
+              .eq('user_id', session.user.id);
+            
+            if (savedError) {
+              console.error("Error fetching saved relations:", savedError);
+              if (isMounted.current) setSavedItems([]);
+            } else if (savedRelations && savedRelations.length > 0) {
+              const savedIds = savedRelations.map(r => r.collectible_id);
+              
+              const { data: savedItemsData, error: itemsError } = await supabase
+                .from('collectibles')
+                .select('*')
+                .in('id', savedIds);
+      
+              if (itemsError) {
+                console.error("Error fetching saved collectibles:", itemsError);
+                if (isMounted.current) setSavedItems([]);
+              } else if (savedItemsData && isMounted.current) {
+                  const ownerIds = [...new Set(savedItemsData.map(c => c.owner_id))];
+                  let combinedData: Collectible[] = savedItemsData;
+      
+                  if (ownerIds.length > 0) {
+                      const { data: profilesData, error: profilesError } = await supabase
+                          .from('profiles')
+                          .select('id, handle, avatar_url')
+                          .in('id', ownerIds);
+                      
+                      if (!profilesError) {
+                          const profilesMap = new Map(profilesData.map(p => [p.id, p]));
+                          combinedData = savedItemsData.map(item => ({
+                              ...item,
+                              profiles: profilesMap.get(item.owner_id) 
+                                  ? { handle: profilesMap.get(item.owner_id)!.handle, avatar_url: profilesMap.get(item.owner_id)!.avatar_url } 
+                                  : null
+                          }));
+                      }
+                  }
+                  setSavedItems(combinedData);
+              }
+            } else {
+              if (isMounted.current) setSavedItems([]);
+            }
+          }
 
         if (!isMounted.current) return;
         
@@ -281,6 +332,7 @@ const Profile: React.FC<ProfileProps> = ({
             {/* Content Tabs */}
             <div className="mt-8 flex justify-center border-b border-base-300">
                 <button onClick={() => setView('collection')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'collection' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><RectangleGroupIcon className="w-5 h-5 inline-block mr-2" />Коллекция</button>
+                {isOwnProfile && <button onClick={() => setView('saved')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'saved' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><BookmarkIcon className="w-5 h-5 inline-block mr-2"/>Сохраненное</button>}
                 <button onClick={() => setView('wantlist')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'wantlist' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><HeartIcon className="w-5 h-5 inline-block mr-2"/>Вишлист</button>
             </div>
             
@@ -315,7 +367,7 @@ const Profile: React.FC<ProfileProps> = ({
                         <div className="mt-12">
                             <h2 className="text-2xl font-bold mb-4">Без альбомов</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {unassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} />)}
+                                {unassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onParameterSearch={onParameterSearch} />)}
                             </div>
                         </div>
                     )}
@@ -329,6 +381,29 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
             )}
             
+            {view === 'saved' && isOwnProfile && (
+                 <div className="mt-8">
+                    {savedItems.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                           {savedItems.map(item => (
+                                <ItemCard 
+                                    key={item.id} 
+                                    item={item} 
+                                    onItemClick={onItemClick} 
+                                    onParameterSearch={onParameterSearch} 
+                                    isSaved={true}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 bg-base-200 rounded-2xl">
+                            <h2 className="text-xl font-bold">У вас нет сохраненных предметов</h2>
+                             <p className="text-base-content/70 mt-2">Нажмите на иконку закладки в ленте, чтобы сохранить что-то на потом.</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {view === 'wantlist' && (
                  <div className="mt-8">
                     {wantlistLists.length > 0 ? (

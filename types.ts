@@ -28,6 +28,8 @@ export interface Collectible {
   } | null;
   grade?: 'UNC' | 'XF' | 'VF' | 'F' | null;
   rarity?: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | null;
+  material?: string | null;
+  mint?: string | null;
 }
 
 export interface Album {

@@ -1,5 +1,7 @@
+
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Collectible, Page, Profile } from '../../types';
+import { Collectible, Page, Profile as ProfileData, WantlistItem } from '../../types';
 import ItemCard from '../ItemCard';
 import { supabase } from '../../supabaseClient';
 import { Session } from '@supabase/supabase-js';
@@ -12,6 +14,8 @@ interface FeedProps {
   dataVersion: number;
   session: Session;
   setCurrentPage: (page: Page) => void;
+  onViewProfile: (profile: ProfileData) => void;
+  onParameterSearch: (field: string, value: any, displayValue?: string) => void;
 }
 
 const FilterButton: React.FC<{
@@ -31,19 +35,20 @@ const FilterButton: React.FC<{
 
 const ITEMS_PER_PAGE = 12;
 
-const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, session, setCurrentPage }) => {
-  // --- States for Subscribed Feed ---
-  const [subscribedCollectibles, setSubscribedCollectibles] = useState<Collectible[]>([]);
-  const [loadingSubscribed, setLoadingSubscribed] = useState(true);
-  const [subscribedFilterCategory, setSubscribedFilterCategory] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
+type FeedCollectible = Collectible & { owner_profile?: ProfileData };
 
-  // --- States for Recently Added Feed ---
-  const [collectibles, setCollectibles] = useState<Collectible[]>([]);
+const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, session, setCurrentPage, onViewProfile, onParameterSearch }) => {
+  const [collectibles, setCollectibles] = useState<FeedCollectible[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [filterCategory, setFilterCategory] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+
+  // State for new action rail
+  const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
+  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(new Set());
+  const [wantlistItems, setWantlistItems] = useState<WantlistItem[]>([]);
 
   const isMounted = useRef(true);
 
@@ -54,30 +59,36 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     };
   }, []);
 
-  // --- Logic for Recently Added Feed ---
-  const fetchCollectibles = useCallback(async (isNewFilter: boolean) => {
-    if (isNewFilter) {
-      setLoading(true);
-    } else {
-      setLoadingMore(true);
+  const fetchUserInteractionData = useCallback(async () => {
+    if (!session) return;
+    const [savedRes, watchedRes, wantlistRes] = await Promise.all([
+        supabase.from('saved_collectibles').select('collectible_id').eq('user_id', session.user.id),
+        supabase.from('watched_collectibles').select('collectible_id').eq('user_id', session.user.id),
+        supabase.from('wantlist').select('name').eq('user_id', session.user.id).eq('is_found', false)
+    ]);
+    if (isMounted.current) {
+        if (savedRes.data) setSavedItemIds(new Set(savedRes.data.map(i => i.collectible_id)));
+        if (watchedRes.data) setWatchedItemIds(new Set(watchedRes.data.map(i => i.collectible_id)));
+        if (wantlistRes.data) setWantlistItems(wantlistRes.data as WantlistItem[]);
     }
+  }, [session]);
+
+  useEffect(() => {
+    fetchUserInteractionData();
+  }, [fetchUserInteractionData, dataVersion]);
+
+  const fetchCollectibles = useCallback(async (isNewFilter: boolean) => {
+    if (isNewFilter) setLoading(true);
+    else setLoadingMore(true);
     
     const currentPage = isNewFilter ? 0 : page;
     const from = currentPage * ITEMS_PER_PAGE;
     const to = from + ITEMS_PER_PAGE - 1;
 
-    let query = supabase
-      .from('collectibles')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (filterCategory !== 'all') {
-      query = query.eq('category', filterCategory);
-    }
+    let query = supabase.from('collectibles').select('*').order('created_at', { ascending: false }).range(from, to);
+    if (filterCategory !== 'all') query = query.eq('category', filterCategory);
 
     const { data: collectiblesData, error } = await query;
-
     if (!isMounted.current) return;
 
     if (error) {
@@ -85,25 +96,19 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
         if (isNewFilter) setCollectibles([]);
     } else if (collectiblesData) {
         const ownerIds = [...new Set(collectiblesData.map(c => c.owner_id))];
-        let combinedData: Collectible[] = collectiblesData as Collectible[];
+        let combinedData: FeedCollectible[] = collectiblesData as FeedCollectible[];
 
         if (ownerIds.length > 0) {
-            const { data: profilesData, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, handle, avatar_url')
-                .in('id', ownerIds);
-
-            if (profilesError) {
-                console.error('Error fetching profiles for feed:', profilesError.message);
-            } else {
-                const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null, avatar_url: string}) => [p.id, p]));
+            const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', ownerIds);
+            if (!profilesError) {
+                const profilesMap = new Map(profilesData.map((p: ProfileData) => [p.id, p]));
                 combinedData = collectiblesData.map(c => ({
                     ...c,
                     profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } : null,
+                    owner_profile: profilesMap.get(c.owner_id)
                 }));
             }
         }
-        
         setCollectibles(prev => isNewFilter ? combinedData : [...prev, ...combinedData]);
         setPage(prev => isNewFilter ? 1 : prev + 1);
         setHasMore(collectiblesData.length === ITEMS_PER_PAGE);
@@ -111,139 +116,79 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
         setHasMore(false);
     }
 
-    if (isNewFilter) {
-      setLoading(false);
-    } else {
-      setLoadingMore(false);
-    }
+    if (isNewFilter) setLoading(false);
+    else setLoadingMore(false);
   }, [page, filterCategory]);
 
-  // Effect to reset and fetch when filter changes
   useEffect(() => {
     setCollectibles([]);
     setPage(0);
     setHasMore(true);
     fetchCollectibles(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCategory, dataVersion]);
 
-  // --- Logic for Subscribed Feed ---
-  useEffect(() => {
-    const fetchSubscribedFeed = async () => {
-      if (!session) {
-        setLoadingSubscribed(false);
-        return;
-      }
-      setLoadingSubscribed(true);
-      
-      const { data: subscriptions, error: subError } = await supabase
-        .from('subscriptions')
-        .select('following_id')
-        .eq('follower_id', session.user.id);
-        
-      if (subError || !subscriptions || subscriptions.length === 0) {
-        if(isMounted.current) {
-            setSubscribedCollectibles([]);
-            setLoadingSubscribed(false);
-        }
-        return;
-      }
-      
-      const followingIds = subscriptions.map(s => s.following_id);
-      
-      const { data: subscribedItemsData, error: itemsError } = await supabase
-        .from('collectibles')
-        .select('*')
-        .in('owner_id', followingIds)
-        .order('created_at', { ascending: false })
-        .limit(50); // Fetch more than needed for client-side filtering
-        
-      if (itemsError) {
-        console.error('Error fetching subscribed feed:', itemsError);
-        if(isMounted.current) setLoadingSubscribed(false);
-        return;
-      }
-      
-      if (subscribedItemsData && subscribedItemsData.length > 0) {
-          const ownerIds = [...new Set(subscribedItemsData.map(c => c.owner_id))];
-          const { data: profilesData, error: profilesError } = await supabase
-              .from('profiles')
-              .select('id, handle, avatar_url')
-              .in('id', ownerIds);
+  // Action Handlers
+  const handleSave = async (itemId: string, isCurrentlySaved: boolean) => {
+    const originalState = new Set(savedItemIds);
+    setSavedItemIds(prev => {
+        const newSet = new Set(prev);
+        if (isCurrentlySaved) newSet.delete(itemId);
+        else newSet.add(itemId);
+        return newSet;
+    });
 
-          let combinedData;
-          if (profilesError) {
-            console.error('Error fetching profiles for subscribed feed:', profilesError);
-            combinedData = subscribedItemsData; // Fallback
-          } else {
-            const profilesMap = new Map(profilesData.map((p: {id: string, handle: string | null, avatar_url: string}) => [p.id, p]));
-            combinedData = subscribedItemsData.map(c => ({
-                ...c,
-                profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } : null,
-            }));
-          }
-          if (isMounted.current) {
-            setSubscribedCollectibles(combinedData as Collectible[]);
-          }
+    if (isCurrentlySaved) {
+        const { error } = await supabase.from('saved_collectibles').delete().match({ user_id: session.user.id, collectible_id: itemId });
+        if (error) { setSavedItemIds(originalState); console.error(error); }
+    } else {
+        const { error } = await supabase.from('saved_collectibles').insert({ user_id: session.user.id, collectible_id: itemId });
+        if (error) { setSavedItemIds(originalState); console.error(error); }
+    }
+  };
+
+  const handleWatch = async (itemId: string, isCurrentlyWatched: boolean) => {
+      const originalState = new Set(watchedItemIds);
+      setWatchedItemIds(prev => {
+          const newSet = new Set(prev);
+          if (isCurrentlyWatched) newSet.delete(itemId);
+          else newSet.add(itemId);
+          return newSet;
+      });
+
+      if (isCurrentlyWatched) {
+          const { error } = await supabase.from('watched_collectibles').delete().match({ user_id: session.user.id, collectible_id: itemId });
+          if (error) { setWatchedItemIds(originalState); console.error(error); }
       } else {
-        if (isMounted.current) {
-            setSubscribedCollectibles([]);
+          const { error } = await supabase.from('watched_collectibles').insert({ user_id: session.user.id, collectible_id: itemId });
+          if (error) { setWatchedItemIds(originalState); console.error(error); }
+      }
+  };
+  
+  const handleOffer = (item: Collectible) => {
+      // Future: Open offer modal. For now, navigate to messages.
+      setCurrentPage('Messages');
+  };
+  
+  const handleRequestInfo = (item: Collectible) => {
+      // Future: Open message with pre-filled text.
+       setCurrentPage('Messages');
+  };
+
+  const checkWantlistMatch = useMemo(() => {
+    const wantlistNames = new Set(wantlistItems.map(item => item.name.toLowerCase()));
+    return (itemName: string) => {
+      const lowerItemName = itemName.toLowerCase();
+      for (const wantName of wantlistNames) {
+        if (lowerItemName.includes(wantName) || wantName.includes(lowerItemName)) {
+          return true;
         }
       }
-      if (isMounted.current) setLoadingSubscribed(false);
+      return false;
     };
-    
-    fetchSubscribedFeed();
-  }, [session, dataVersion]);
+  }, [wantlistItems]);
   
-  const filteredSubscribedCollectibles = useMemo(() => {
-      if (subscribedFilterCategory === 'all') {
-          return subscribedCollectibles;
-      }
-      return subscribedCollectibles.filter(item => item.category === subscribedFilterCategory);
-  }, [subscribedCollectibles, subscribedFilterCategory]);
-
-
-  const displayedSubscribedCollectibles = filteredSubscribedCollectibles.slice(0, 10);
-
   return (
     <div className="space-y-12">
-      {/* Subscribed Feed Section */}
-      {!loadingSubscribed && subscribedCollectibles.length > 0 && (
-        <div>
-          <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
-            <h1 className="text-3xl font-bold">Мои подписки</h1>
-            <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
-                <FilterButton onClick={() => setSubscribedFilterCategory('all')} isActive={subscribedFilterCategory === 'all'}>Все</FilterButton>
-                <FilterButton onClick={() => setSubscribedFilterCategory('coin')} isActive={subscribedFilterCategory === 'coin'}>Монеты</FilterButton>
-                <FilterButton onClick={() => setSubscribedFilterCategory('banknote')} isActive={subscribedFilterCategory === 'banknote'}>Банкноты</FilterButton>
-                <FilterButton onClick={() => setSubscribedFilterCategory('stamp')} isActive={subscribedFilterCategory === 'stamp'}>Марки</FilterButton>
-            </div>
-          </div>
-          
-          {displayedSubscribedCollectibles.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              {displayedSubscribedCollectibles.map(item => (
-                <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={onCheckWantlist}/>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-base-content/70">
-                Нет предметов в выбранной категории.
-            </div>
-          )}
-
-          {filteredSubscribedCollectibles.length > 10 && (
-            <div className="mt-8 text-center">
-              <button onClick={() => setCurrentPage('SubscriptionFeed')} className="bg-base-200 hover:bg-secondary hover:text-secondary-content font-bold py-3 px-8 rounded-full text-base transition-all duration-300 shadow-lg hover:shadow-xl w-full sm:w-auto outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100">
-                Показать всю ленту подписок
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Recently Added Section */}
       <div>
         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
           <h1 className="text-3xl font-bold">Недавно добавленные</h1>
@@ -266,7 +211,24 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                        const createdAt = new Date(item.created_at);
                        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                        const isNew = createdAt > oneDayAgo;
-                       return <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={onCheckWantlist} isNew={isNew}/>
+                       const isOwner = item.owner_id === session.user.id;
+                       return <ItemCard 
+                                key={item.id} 
+                                item={item} 
+                                onItemClick={onItemClick} 
+                                onCheckWantlist={onCheckWantlist} 
+                                isNew={isNew}
+                                onViewProfile={item.owner_profile ? () => onViewProfile(item.owner_profile!) : undefined}
+                                isOwner={isOwner}
+                                onParameterSearch={onParameterSearch}
+                                isSaved={!isOwner && savedItemIds.has(item.id)}
+                                isWatched={!isOwner && watchedItemIds.has(item.id)}
+                                isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
+                                onSave={handleSave}
+                                onWatch={handleWatch}
+                                onOffer={handleOffer}
+                                onRequestInfo={handleRequestInfo}
+                              />
                     })}
                 </div>
             ) : (

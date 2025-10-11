@@ -14,6 +14,7 @@ import Auth from './components/Auth';
 import SubscriptionFeed from './components/pages/SubscriptionFeed';
 import WantlistMatchesModal from './components/WantlistMatchesModal';
 import GlobalSearchModal from './components/GlobalSearchModal';
+import GlobalParameterSearchModal from './components/GlobalParameterSearchModal';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [initialWantlistListId, setInitialWantlistListId] = useState<string | null>(null);
   const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [parameterSearchQuery, setParameterSearchQuery] = useState<{ field: string; value: any; displayValue?: string } | null>(null);
   const isMounted = useRef(true);
 
   // New navigation handler to centralize page changes and state cleanup
@@ -256,6 +258,7 @@ const App: React.FC = () => {
     setCurrentPage('Messages');
     setSelectedItem(null);
     setCheckingItem(null);
+    setIsSearchOpen(false);
   };
 
   const handleViewProfile = (profile: ProfileData) => {
@@ -273,6 +276,11 @@ const App: React.FC = () => {
     }
     setSelectedItem(null);
     setIsSearchOpen(false);
+  };
+
+  const handleParameterSearch = (field: string, value: any, displayValue?: string) => {
+    setParameterSearchQuery({ field, value, displayValue });
+    setSelectedItem(null); // Close any open item details
   };
 
 
@@ -308,6 +316,7 @@ const App: React.FC = () => {
       } else {
         setCurrentPage('Wantlist');
       }
+      setIsSearchOpen(false);
   };
 
   const handleItemClickById = async (itemId: string) => {
@@ -352,16 +361,25 @@ const App: React.FC = () => {
     if (!session) return null;
     switch (currentPage) {
       case 'Feed':
-        return <Feed onItemClick={handleItemClick} onCheckWantlist={setCheckingItem} dataVersion={dataVersion} session={session} setCurrentPage={setCurrentPage} />;
+        return <Feed 
+            onItemClick={handleItemClick} 
+            onCheckWantlist={setCheckingItem} 
+            dataVersion={dataVersion} 
+            session={session} 
+            setCurrentPage={setCurrentPage} 
+            onViewProfile={handleViewProfile} 
+            onParameterSearch={handleParameterSearch}
+          />;
       case 'SubscriptionFeed':
         return <SubscriptionFeed 
             session={session} 
             onItemClick={handleItemClick}
             onViewProfile={handleViewProfile}
             onNavigateToFeed={() => setCurrentPage('Feed')}
+            onParameterSearch={handleParameterSearch}
           />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)} onParameterSearch={handleParameterSearch}/>;
       case 'Wantlist':
         return <Wantlist 
             session={session}
@@ -384,6 +402,7 @@ const App: React.FC = () => {
             onViewAlbum={handleViewAlbum} 
             onViewCollection={handleViewCollection}
             onViewWantlist={handleViewWantlist}
+            onParameterSearch={handleParameterSearch}
         />;
       case 'PublicProfile':
         if (!viewingProfileId) {
@@ -399,6 +418,7 @@ const App: React.FC = () => {
             onViewWantlist={handleViewWantlist}
             onStartConversation={handleStartConversation}
             onBack={() => setCurrentPage(previousPage)} // Use the stored previous page
+            onParameterSearch={handleParameterSearch}
         />;
       case 'PublicWantlist':
         if (!viewingProfileId) {
@@ -420,6 +440,7 @@ const App: React.FC = () => {
             onViewAlbum={handleViewAlbum} 
             onViewCollection={handleViewCollection}
             onViewWantlist={handleViewWantlist}
+            onParameterSearch={handleParameterSearch}
         />;
     }
   };
@@ -453,6 +474,7 @@ const App: React.FC = () => {
           onStartConversation={handleStartConversation}
           onItemUpdate={refreshData}
           onEditItem={handleEditItemRequest}
+          onParameterSearch={handleParameterSearch}
         />
       )}
       {(addItemModalState.isOpen || editingItem) && (
@@ -472,10 +494,22 @@ const App: React.FC = () => {
       )}
       {isSearchOpen && (
         <GlobalSearchModal
+          session={session}
           onClose={() => setIsSearchOpen(false)}
           onViewProfile={handleViewProfile}
           onViewItem={handleItemClickById}
           onViewAlbum={handleViewAlbum}
+          onViewWantlist={handleViewWantlist}
+          onViewMessageThread={handleStartConversation}
+        />
+      )}
+      {parameterSearchQuery && (
+        <GlobalParameterSearchModal
+            searchQuery={parameterSearchQuery}
+            onClose={() => setParameterSearchQuery(null)}
+            onItemClick={handleItemClick}
+            onViewProfile={handleViewProfile}
+            onParameterSearch={handleParameterSearch}
         />
       )}
     </>

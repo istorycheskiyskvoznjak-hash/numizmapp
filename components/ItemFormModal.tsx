@@ -48,6 +48,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
     const [description, setDescription] = useState('');
     const [grade, setGrade] = useState<'UNC' | 'XF' | 'VF' | 'F' | ''>('');
     const [rarity, setRarity] = useState<'R1' | 'R2' | 'R3' | 'R4' | 'R5' | ''>('');
+    const [material, setMaterial] = useState('');
+    const [mint, setMint] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [albums, setAlbums] = useState<Album[]>([]);
@@ -76,6 +78,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             setDescription(itemToEdit.description);
             setGrade(itemToEdit.grade || '');
             setRarity(itemToEdit.rarity || '');
+            setMaterial(itemToEdit.material || '');
+            setMint(itemToEdit.mint || '');
             setSelectedAlbumId(itemToEdit.album_id || '');
             setImagePreview(itemToEdit.image_url || null);
         } else {
@@ -138,7 +142,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(file);
             
-            const prompt = `Ты — эксперт по нумизматике и филателии. Проанализируй это изображение коллекционного предмета. Предоставь информацию о нем в соответствии с указанной схемой JSON. Все поля в ответе должны быть на русском языке. Если ты не можешь определить какое-либо поле, сделай разумное предположение или оставь его пустым (для строковых полей) или null (для года).`;
+            const prompt = `You are an expert numismatist and philatelist. Analyze this image of a collectible item. Provide information about it according to the specified JSON schema. All text fields in the response must be in Russian. For the 'material' field, use one of the following normalized values: 'gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'. If you cannot determine a field, make a reasonable guess or leave it empty (for strings) or null (for year).`;
 
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -157,9 +161,11 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                             country: { type: Type.STRING, description: "Страна происхождения на русском языке." },
                             year: { type: Type.NUMBER, description: "Год выпуска. Может быть null, если неизвестен." },
                             description: { type: Type.STRING, description: "Краткое описание предмета на русском языке." },
-                            category: { type: Type.STRING, description: "Категория: 'coin', 'stamp' или 'banknote'." }
+                            category: { type: Type.STRING, description: "Категория: 'coin', 'stamp' или 'banknote'." },
+                            material: { type: Type.STRING, description: "Normalized material: 'gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'." },
+                            mint: { type: Type.STRING, description: "Монетный двор (если это монета), на русском." }
                         },
-                        required: ['name', 'country', 'year', 'description', 'category']
+                        required: ['name', 'country', 'year', 'description', 'category', 'material', 'mint']
                     }
                 }
             });
@@ -174,6 +180,10 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                 setCountry(result.country?.trim() || '');
                 setYear(String(result.year || ''));
                 setDescription(result.description?.trim() || '');
+                setMint(result.mint?.trim() || '');
+                if (result.material && ['gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'].includes(result.material)) {
+                    setMaterial(result.material);
+                }
             }
 
         } catch (err: any) {
@@ -244,6 +254,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                 album_id: selectedAlbumId === '' ? null : selectedAlbumId,
                 grade: grade === '' ? null : grade,
                 rarity: rarity === '' ? null : rarity,
+                material: material === '' ? null : material,
+                mint: mint.trim() === '' ? null : mint.trim(),
             };
 
             if (isEditMode) {
@@ -313,6 +325,20 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                                     </select>
                                 </div>
                             </div>
+                            <div>
+                                <label htmlFor="material" className="text-sm font-medium text-base-content/80">Материал</label>
+                                <select id="material" value={material} onChange={e => setMaterial(e.target.value)} className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary">
+                                    <option value="">Не выбран</option>
+                                    <option value="gold">Золото</option>
+                                    <option value="silver">Серебро</option>
+                                    <option value="copper">Медь</option>
+                                    <option value="bronze">Бронза</option>
+                                    <option value="iron">Железо</option>
+                                    <option value="paper">Бумага</option>
+                                    <option value="other">Другое</option>
+                                </select>
+                            </div>
+                            <InputField label="Монетный двор" id="mint" type="text" value={mint} onChange={e => setMint(e.target.value)} placeholder="напр., Санкт-Петербургский"/>
                         </div>
                         <div>
                              <label className="text-sm font-medium text-base-content/80">Изображение</label>
@@ -337,7 +363,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                                 )}
                                 <input type="file" onChange={handleFileChange} accept="image/*" className="absolute h-full w-full opacity-0 cursor-pointer"/>
                              </div>
-                             {file && !isEditMode && (
+                             {file && (
                                 <button type="button" onClick={handleAnalyzeImage} disabled={isAnalyzing || loading} className="mt-2 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-base-content bg-base-300 hover:bg-secondary transition-all disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                     {isAnalyzing ? 'Анализ...' : 'Анализ с ИИ'}
                                 </button>

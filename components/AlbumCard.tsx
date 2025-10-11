@@ -48,7 +48,7 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
     return 'предметов';
   };
   
-  const previewItems = items.slice(0, 5);
+  const previewItems = items.slice(0, 4);
 
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,8 +115,8 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
       {/* Main Content Grid */}
       <div className="relative grid grid-cols-12 gap-x-4 sm:gap-x-6 p-4 h-full">
         {/* Left Column: Cover */}
-        <div className="col-span-4 flex items-center justify-center">
-            <div className="relative w-full aspect-square max-w-[120px] transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-105">
+        <div className="col-span-5 flex items-center justify-center">
+            <div className="relative w-[90%] aspect-square transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-105">
                 {finalCoverUrl ? (
                     <div className={`relative w-full h-full bg-black rounded-lg shadow-lg border-2 ${currentTheme.coverBorder} ${currentTheme.coverBorderHover} transition-colors duration-300 p-1`}>
                         <img src={finalCoverUrl} alt={`Cover for ${album.name}`} className="h-full w-full object-cover rounded-[3px] shadow-inner" />
@@ -136,7 +136,7 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
         </div>
 
         {/* Right Column: Content Pane */}
-        <div className="col-span-8 flex flex-col justify-between">
+        <div className="col-span-7 flex flex-col justify-between">
           <div className={`${currentTheme.paneBg} rounded-xl p-4 border border-white/10 h-full flex flex-col justify-between`}>
             <div>
               <h3 className={`font-semibold text-lg sm:text-xl tracking-tight leading-tight flex items-center ${currentTheme.textColor}`}>
@@ -148,9 +148,9 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
                 </p>
               )}
                {previewItems.length > 0 && (
-                <div className="mt-3 space-y-1 text-xs">
+                <div className="mt-3 mb-3 space-y-2 text-lg">
                   {previewItems.map(item => (
-                    <p key={item.id} className={`truncate ${currentTheme.textColor}/70`}>
+                    <p key={item.id} className={`truncate leading-snug ${currentTheme.textColor}/70`}>
                       • {item.name}
                     </p>
                   ))}
@@ -159,9 +159,9 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
             </div>
             
             <div className="pt-2 flex items-center gap-2 flex-wrap">
-                {itemCount > 5 && (
+                {itemCount > 4 && (
                     <div className="bg-primary text-primary-content font-semibold py-1 px-4 rounded-full text-sm shadow-sm">
-                        и ещё {itemCount - 5} {getItemCountText(itemCount - 5)}
+                        и ещё {itemCount - 4} {getItemCountText(itemCount - 4)}
                     </div>
                 )}
             </div>

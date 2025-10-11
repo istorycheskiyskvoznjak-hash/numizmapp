@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../supabaseClient';
@@ -29,6 +30,7 @@ interface SubscriptionFeedProps {
     onItemClick: (item: Collectible) => void;
     onViewProfile: (profile: ProfileData) => void;
     onNavigateToFeed: () => void;
+    onParameterSearch: (field: string, value: any, displayValue?: string) => void;
 }
 
 // Map types to styles and text for cleaner rendering
@@ -39,7 +41,7 @@ const typeInfo: Record<FeedItemType, { text: string; icon: React.FC<React.SVGPro
 };
 
 
-const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClick, onViewProfile, onNavigateToFeed }) => {
+const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClick, onViewProfile, onNavigateToFeed, onParameterSearch }) => {
     const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
     const [loading, setLoading] = useState(true);
     // FIX: Changed the state type to Collectible[] to match the expected prop type in AlbumCard.
@@ -181,10 +183,15 @@ const SubscriptionFeed: React.FC<SubscriptionFeedProps> = ({ session, onItemClic
                                     </div>
                                 </div>
                                 
-                                {item.type === 'collectible' && <ItemCard item={{
-                                    ...(item.data as Collectible),
-                                    profiles: item.owner_profile ? { handle: item.owner_profile.handle, avatar_url: item.owner_profile.avatar_url } : null
-                                }} onItemClick={onItemClick} />}
+                                {item.type === 'collectible' && <ItemCard 
+                                    item={{
+                                        ...(item.data as Collectible),
+                                        profiles: item.owner_profile ? { handle: item.owner_profile.handle, avatar_url: item.owner_profile.avatar_url } : null
+                                    }} 
+                                    onItemClick={onItemClick}
+                                    onViewProfile={item.owner_profile ? () => onViewProfile(item.owner_profile as ProfileData) : undefined}
+                                    onParameterSearch={onParameterSearch}
+                                />}
                                 {item.type === 'album' && (
                                     <AlbumCard 
                                         album={item.data as Album}

@@ -13,6 +13,8 @@ interface PublicProfileModalProps {
   onViewAlbum: (albumId: string) => void;
   onViewCollection: () => void;
   onViewWantlist: () => void;
+  // FIX: Added missing 'onParameterSearch' property to match the 'ProfileProps' type.
+  onParameterSearch: (field: string, value: any, displayValue?: string) => void;
 }
 
 
@@ -24,7 +26,8 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
     onStartConversation,
     onViewAlbum,
     onViewCollection,
-    onViewWantlist
+    onViewWantlist,
+    onParameterSearch
 }) => {
     
     // These handlers will first close the modal, then navigate in the main app view.
@@ -48,6 +51,12 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
         onViewWantlist();
     };
 
+    // FIX: Added a handler for parameter search to close the modal before triggering the search.
+    const handleParameterSearch = (field: string, value: any, displayValue?: string) => {
+        onClose();
+        onParameterSearch(field, value, displayValue);
+    };
+
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -61,6 +70,8 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({
                         onViewAlbum={handleViewAlbum}
                         onViewCollection={handleViewCollection}
                         onViewWantlist={handleViewWantlist}
+                        // FIX: Passed the 'onParameterSearch' prop to the Profile component.
+                        onParameterSearch={handleParameterSearch}
                    />
                 </div>
             </div>
