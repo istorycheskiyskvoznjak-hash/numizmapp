@@ -1,22 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { Collectible, Profile } from '../types';
+import { Collectible, Profile, Album } from '../types';
 import SearchIcon from './icons/SearchIcon';
 import ImageIcon from './icons/ImageIcon';
 import UserCircleIcon from './icons/UserCircleIcon';
 import SpinnerIcon from './icons/SpinnerIcon';
+import FolderIcon from './icons/FolderIcon';
 
 interface GlobalSearchModalProps {
   onClose: () => void;
   onViewProfile: (profile: Profile) => void;
   onViewItem: (itemId: string) => void;
+  onViewAlbum: (albumId: string) => void;
 }
 
 type SearchResult = 
     | { type: 'profile'; data: Profile }
-    | { type: 'collectible'; data: Collectible };
+    | { type: 'collectible'; data: Collectible }
+    | { type: 'album'; data: Album };
 
-const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewProfile, onViewItem }) => {
+const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewProfile, onViewItem, onViewAlbum }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,21 +53,33 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewPr
 
     setLoading(true);
     searchTimeoutRef.current = window.setTimeout(async () => {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`name.ilike.%${searchTerm}%,handle.ilike.%${searchTerm}%`)
-        .limit(5);
+      const [profileRes, collectibleRes, albumRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .or(`name.ilike.%${searchTerm}%,handle.ilike.%${searchTerm}%`)
+          .limit(5),
+        supabase
+          .from('collectibles')
+          .select('*')
+          .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+          .limit(5),
+        supabase
+          .from('albums')
+          .select('*')
+          .ilike('name', `%${searchTerm}%`)
+          .eq('is_public', true) // Only search public albums
+          .limit(5)
+      ]);
 
+      const { data: profileData, error: profileError } = profileRes;
       if (profileError) console.error("Search profile error:", profileError);
 
-      const { data: collectibleData, error: collectibleError } = await supabase
-        .from('collectibles')
-        .select('*')
-        .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
-        .limit(5);
-        
+      const { data: collectibleData, error: collectibleError } = collectibleRes;
       if (collectibleError) console.error("Search collectible error:", collectibleError);
+
+      const { data: albumData, error: albumError } = albumRes;
+      if (albumError) console.error("Search album error:", albumError);
 
       const combinedResults: SearchResult[] = [];
       if (profileData) {
@@ -73,6 +88,10 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewPr
       if (collectibleData) {
         collectibleData.forEach(c => combinedResults.push({ type: 'collectible', data: c as Collectible }));
       }
+      if (albumData) {
+        albumData.forEach(a => combinedResults.push({ type: 'album', data: a as Album }));
+      }
+
       setResults(combinedResults);
       setLoading(false);
     }, 300); // Debounce search
@@ -85,10 +104,16 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewPr
   }, [searchTerm]);
   
   const handleSelect = (result: SearchResult) => {
-    if (result.type === 'profile') {
-        onViewProfile(result.data);
-    } else {
-        onViewItem(result.data.id);
+    switch (result.type) {
+        case 'profile':
+            onViewProfile(result.data);
+            break;
+        case 'collectible':
+            onViewItem(result.data.id);
+            break;
+        case 'album':
+            onViewAlbum(result.data.id);
+            break;
     }
     onClose();
   };
@@ -111,7 +136,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewPr
             <input
                 ref={inputRef}
                 type="text"
-                placeholder="Поиск пользователей и предметов..."
+                placeholder="Поиск пользователей, предметов и альбомов..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-12 py-3 bg-transparent text-lg focus:outline-none"
@@ -139,18 +164,24 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ onClose, onViewPr
                                     ) : (
                                         <UserCircleIcon className="w-8 h-8 text-base-content/30" />
                                     )
-                                ) : (
+                                ) : result.type === 'collectible' ? (
                                      result.data.image_url ? (
                                         <img src={result.data.image_url} alt={result.data.name} className="w-full h-full object-cover" />
                                     ) : (
                                         <ImageIcon className="w-8 h-8 text-base-content/30" />
+                                    )
+                                ) : ( // Album
+                                    (result.data as Album).cover_image_url ? (
+                                        <img src={(result.data as Album).cover_image_url!} alt={result.data.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <FolderIcon className="w-8 h-8 text-base-content/30" />
                                     )
                                 )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="font-semibold truncate">{result.data.name}</p>
                                     <p className="text-sm text-base-content/70">
-                                        {result.type === 'profile' ? `@${result.data.handle}` : result.data.country}
+                                        {result.type === 'profile' ? `@${result.data.handle}` : result.type === 'collectible' ? result.data.country : 'Альбом'}
                                     </p>
                                 </div>
                             </button>

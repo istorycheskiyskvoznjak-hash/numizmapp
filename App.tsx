@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [initialAlbumId, setInitialAlbumId] = useState<string | null>(null);
+  const [initialWantlistListId, setInitialWantlistListId] = useState<string | null>(null);
   const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const isMounted = useRef(true);
@@ -50,6 +51,9 @@ const App: React.FC = () => {
     // When navigating away from a specific collection album view, clear it
     if (page !== 'Collection') {
       setInitialAlbumId(null);
+    }
+    if (page !== 'Wantlist') {
+      setInitialWantlistListId(null);
     }
   };
 
@@ -284,6 +288,7 @@ const App: React.FC = () => {
   const handleViewAlbum = (albumId: string) => {
     setInitialAlbumId(albumId);
     setCurrentPage('Collection');
+    setIsSearchOpen(false);
   };
 
   const handleViewCollection = () => {
@@ -291,7 +296,12 @@ const App: React.FC = () => {
     setCurrentPage('Collection');
   };
   
-  const handleViewWantlist = () => {
+  const handleViewWantlist = (listId?: string) => {
+      if (listId) {
+        setInitialWantlistListId(listId);
+      } else {
+        setInitialWantlistListId(null);
+      }
       setCurrentPage('Wantlist');
   };
 
@@ -348,7 +358,10 @@ const App: React.FC = () => {
       case 'Collection':
         return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
       case 'Wantlist':
-        return <Wantlist />;
+        return <Wantlist 
+            initialListId={initialWantlistListId}
+            clearInitialListId={() => setInitialWantlistListId(null)}
+          />;
       case 'Messages':
         return <Messages 
             session={session} 
@@ -443,6 +456,7 @@ const App: React.FC = () => {
           onClose={() => setIsSearchOpen(false)}
           onViewProfile={handleViewProfile}
           onViewItem={handleItemClickById}
+          onViewAlbum={handleViewAlbum}
         />
       )}
     </>

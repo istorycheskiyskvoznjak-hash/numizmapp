@@ -56,9 +56,19 @@ export interface Comment {
   } | null;
 }
 
+export interface WantlistList {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  is_public: boolean;
+  created_at: string;
+}
+
 export interface WantlistItem {
     id: string;
     user_id: string;
+    list_id: string;
     name: string;
     details: string;
     description: string;

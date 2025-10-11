@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import { WantlistItem } from '../types';
+import { WantlistItem, WantlistList } from '../types';
 import XCircleIcon from './icons/XCircleIcon';
 
 const InputField: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, id, ...props }) => (
@@ -23,15 +23,18 @@ interface WantlistFormModalProps {
     itemToEdit?: WantlistItem | null;
     onClose: () => void;
     onSuccess: () => void;
+    initialListId?: string;
 }
 
-const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClose, onSuccess }) => {
+const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClose, onSuccess, initialListId }) => {
     const [name, setName] = useState('');
     const [details, setDetails] = useState('');
     const [description, setDescription] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isDeletingImage, setIsDeletingImage] = useState(false);
+    const [lists, setLists] = useState<WantlistList[]>([]);
+    const [selectedListId, setSelectedListId] = useState<string>('');
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -46,11 +49,35 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             setDetails(itemToEdit.details);
             setDescription(itemToEdit.description);
             setImagePreview(itemToEdit.image_url || null);
+            setSelectedListId(itemToEdit.list_id || '');
+        } else {
+            setSelectedListId(initialListId || '');
         }
         return () => {
             isMounted.current = false;
         };
-    }, [itemToEdit, isEditMode]);
+    }, [itemToEdit, isEditMode, initialListId]);
+
+    useEffect(() => {
+        const fetchLists = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data, error } = await supabase
+                .from('wantlist_lists')
+                .select('*')
+                .eq('user_id', user.id);
+            if (error) {
+                console.error("Error fetching wantlist lists", error);
+            } else if (isMounted.current) {
+                setLists(data);
+                // If there's no initial list ID and not in edit mode, select the first list by default
+                if (!initialListId && !isEditMode && data.length > 0) {
+                    setSelectedListId(data[0].id);
+                }
+            }
+        };
+        fetchLists();
+    }, [initialListId, isEditMode]);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -84,6 +111,10 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!selectedListId) {
+            setError("Пожалуйста, выберите вишлист.");
+            return;
+        }
         setLoading(true);
         setError(null);
 
@@ -133,7 +164,8 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
                 details, 
                 description, 
                 user_id: user.id,
-                image_url: imageUrl
+                image_url: imageUrl,
+                list_id: selectedListId,
             };
 
             if (isEditMode) {
@@ -167,6 +199,21 @@ const WantlistFormModal: React.FC<WantlistFormModalProps> = ({ itemToEdit, onClo
             <div className="bg-base-200 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <h1 className="text-2xl font-bold mb-6">{isEditMode ? 'Редактировать элемент' : 'Добавить в вишлист'}</h1>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="list_id" className="text-sm font-medium text-base-content/80">Вишлист</label>
+                        <select 
+                            id="list_id" 
+                            value={selectedListId} 
+                            onChange={(e) => setSelectedListId(e.target.value)}
+                            required
+                            className="mt-1 block w-full px-3 py-2 bg-base-100 border border-base-300 rounded-md text-sm shadow-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                        >
+                            <option value="" disabled>-- Выберите список --</option>
+                            {lists.map(list => (
+                                <option key={list.id} value={list.id}>{list.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <InputField label="Название" id="name" type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="напр., Денарий Траяна" />
                     <InputField label="Детали" id="details" type="text" value={details} onChange={e => setDetails(e.target.value)} placeholder="напр., Римская империя, 98-117 гг." />
                      <div>

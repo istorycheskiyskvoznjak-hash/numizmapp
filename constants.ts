@@ -1,4 +1,5 @@
 
+
 import { WantlistItem, MessageThread } from './types';
 
 export const MOCK_WANTLIST: WantlistItem[] = [
@@ -7,6 +8,8 @@ export const MOCK_WANTLIST: WantlistItem[] = [
         id: '1',
         // FIX: Added missing properties `user_id` and `created_at` to match the WantlistItem type.
         user_id: 'mock_user_1',
+        // FIX: Added missing property `list_id` to match the WantlistItem type.
+        list_id: 'mock_list_1',
         created_at: new Date().toISOString(),
         name: 'Денарий Траяна',
         details: 'Римская империя, 98-117 гг. н.э.',
@@ -17,6 +20,8 @@ export const MOCK_WANTLIST: WantlistItem[] = [
         id: '2',
         // FIX: Added missing properties `user_id` and `created_at` to match the WantlistItem type.
         user_id: 'mock_user_1',
+        // FIX: Added missing property `list_id` to match the WantlistItem type.
+        list_id: 'mock_list_1',
         created_at: new Date().toISOString(),
         name: 'Марка "Голубой Маврикий"',
         details: 'Британская колония Маврикий, 1847 г.',

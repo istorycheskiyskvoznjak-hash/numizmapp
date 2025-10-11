@@ -31,7 +31,7 @@ const Layout: React.FC<LayoutProps> = ({
         unreadMessageCount={unreadMessageCount}
         onSearchOpen={onSearchOpen}
       />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}
       </main>
     </div>

@@ -3,6 +3,7 @@ import { Album, Collectible } from '../types';
 import EditIcon from './icons/EditIcon';
 import TrashIcon from './icons/TrashIcon';
 import LockClosedIcon from './icons/LockClosedIcon';
+import EyeIcon from './icons/EyeIcon';
 
 interface AlbumCardProps {
   album: Album;
@@ -13,6 +14,22 @@ interface AlbumCardProps {
   onDelete?: () => void;
   isOwnProfile?: boolean;
 }
+
+const PrivacyBadge: React.FC<{ isPublic: boolean }> = ({ isPublic }) => {
+  const Icon = isPublic ? EyeIcon : LockClosedIcon;
+  const text = isPublic ? 'Публичный' : 'Приватный';
+  const bgColor = isPublic ? 'bg-emerald-500/30' : 'bg-amber-500/30';
+  const textColor = isPublic ? 'text-emerald-200' : 'text-amber-200';
+  const borderColor = isPublic ? 'border-emerald-300/50' : 'border-amber-300/50';
+
+  return (
+    <div title={isPublic ? 'Этот альбом виден всем' : 'Этот альбом виден только вам'} className={`absolute top-3 left-3 z-10 flex items-center gap-1.5 ${bgColor} ${textColor} text-xs font-bold px-2.5 py-1 rounded-full border ${borderColor} backdrop-blur-sm`}>
+      <Icon className="w-3.5 h-3.5" />
+      <span>{text}</span>
+    </div>
+  );
+};
+
 
 const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick, onEdit, onDelete, isOwnProfile }) => {
   const getItemCountText = (count: number): string => {
@@ -93,6 +110,8 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
       {/* Layer 2 & 3: Vignette + Overlay */}
       {hasHeader && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/30"></div>}
       
+      {isOwnProfile && <PrivacyBadge isPublic={album.is_public} />}
+      
       {/* Main Content Grid */}
       <div className="relative grid grid-cols-12 gap-x-4 sm:gap-x-6 p-4 h-full">
         {/* Left Column: Cover */}
@@ -121,12 +140,6 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
           <div className={`${currentTheme.paneBg} rounded-xl p-4 border border-white/10 h-full flex flex-col justify-between`}>
             <div>
               <h3 className={`font-semibold text-lg sm:text-xl tracking-tight leading-tight flex items-center ${currentTheme.textColor}`}>
-                {isOwnProfile && !album.is_public && (
-                  // FIX: Changed `title` prop to a `<title>` child element to fix TypeScript error and provide an accessible tooltip.
-                  <LockClosedIcon className="w-4 h-4 mr-2 flex-shrink-0 opacity-70">
-                    <title>Приватный альбом</title>
-                  </LockClosedIcon>
-                )}
                 <span className="truncate">{album.name}</span>
               </h3>
               {album.description && (

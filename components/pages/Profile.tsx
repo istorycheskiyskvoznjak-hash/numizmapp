@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Collectible, Profile as ProfileData, Album, WantlistItem } from '../../types';
+import { Collectible, Profile as ProfileData, Album, WantlistItem, WantlistList } from '../../types';
 import ItemCard from '../ItemCard';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../supabaseClient';
@@ -18,6 +18,7 @@ import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 import WantlistItemCard from '../WantlistItemCard';
 import WantlistFormModal from '../WantlistFormModal';
 import PlusIcon from '../icons/PlusIcon';
+import WantlistListCard from '../WantlistListCard';
 
 
 interface ProfileProps {
@@ -27,7 +28,7 @@ interface ProfileProps {
   // Navigation handlers
   onViewAlbum: (albumId: string) => void;
   onViewCollection: () => void;
-  onViewWantlist: () => void;
+  onViewWantlist: (listId?: string) => void;
   // Only for public profiles
   onStartConversation?: (userId: string) => void;
   onBack?: () => void;
@@ -67,19 +68,16 @@ const Profile: React.FC<ProfileProps> = ({
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [collectibles, setCollectibles] = useState<Collectible[]>([]);
     const [albums, setAlbums] = useState<Album[]>([]);
-    const [wantlist, setWantlist] = useState<ClientWantlistItem[]>([]);
+    const [wantlistItems, setWantlistItems] = useState<WantlistItem[]>([]);
+    const [wantlistLists, setWantlistLists] = useState<WantlistList[]>([]);
     const [followers, setFollowers] = useState(0);
     const [following, setFollowing] = useState(0);
     const [isFollowing, setIsFollowing] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-    const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
     const [view, setView] = useState<'collection' | 'wantlist'>('collection');
-    const [isWantlistModalOpen, setIsWantlistModalOpen] = useState(false);
-    const [editingWantlistItem, setEditingWantlistItem] = useState<WantlistItem | null>(null);
-
-
+    
     const isMounted = useRef(true);
 
     const isOwnProfile = !profileId || profileId === session.user.id;
@@ -134,37 +132,34 @@ const Profile: React.FC<ProfileProps> = ({
             setFollowing(followingCount || 0);
         }
 
-        const [collectiblesRes, albumsRes, wantlistRes] = await Promise.all([
+        const [collectiblesRes, albumsRes, wantlistItemsRes, wantlistListsRes] = await Promise.all([
             supabase.from('collectibles').select('*').eq('owner_id', userId).order('created_at', { ascending: false }),
-            // For public profiles, only fetch public albums. For own profile, fetch all.
             isOwnProfile
                 ? supabase.from('albums').select('*').eq('owner_id', userId).order('name', { ascending: true })
                 : supabase.from('albums').select('*').eq('owner_id', userId).eq('is_public', true).order('name', { ascending: true }),
-            supabase.from('wantlist').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+            supabase.from('wantlist').select('*').eq('user_id', userId),
+            isOwnProfile
+                ? supabase.from('wantlist_lists').select('*').eq('user_id', userId).order('name', { ascending: true })
+                : supabase.from('wantlist_lists').select('*').eq('user_id', userId).eq('is_public', true).order('name', { ascending: true })
         ]);
 
         if (!isMounted.current) return;
         
-        const { data: albumsData, error: albumsError } = albumsRes;
-        if (albumsError) console.error("Error fetching albums", albumsError);
-        else setAlbums(albumsData as Album[]);
-
-        const { data: collectiblesData, error: collectiblesError } = collectiblesRes;
-        if (collectiblesError) console.error("Error fetching collectibles", collectiblesError);
+        setAlbums(albumsRes.data as Album[] || []);
+        
+        if (collectiblesRes.error) console.error("Error fetching collectibles", collectiblesRes.error);
         else {
             if (isOwnProfile) {
-                setCollectibles(collectiblesData as Collectible[]);
+                setCollectibles(collectiblesRes.data as Collectible[]);
             } else {
-                // For public view, only show items that are in one of the public albums
-                const publicAlbumIds = (albumsData || []).map(a => a.id);
-                const publicCollectibles = (collectiblesData || []).filter(c => c.album_id && publicAlbumIds.includes(c.album_id));
+                const publicAlbumIds = (albumsRes.data || []).map(a => a.id);
+                const publicCollectibles = (collectiblesRes.data || []).filter(c => c.album_id && publicAlbumIds.includes(c.album_id));
                 setCollectibles(publicCollectibles as Collectible[]);
             }
         }
-
-        const { data: wantlistData, error: wantlistError } = wantlistRes;
-        if (wantlistError) console.error("Error fetching wantlist", wantlistError);
-        else setWantlist(wantlistData as ClientWantlistItem[]);
+        
+        setWantlistItems(wantlistItemsRes.data as WantlistItem[] || []);
+        setWantlistLists(wantlistListsRes.data as WantlistList[] || []);
         
         setLoading(false);
     }, [profileId, session.user.id, isOwnProfile]);
@@ -201,88 +196,6 @@ const Profile: React.FC<ProfileProps> = ({
             setIsFollowing(true);
             setFollowers(f => f + 1);
         }
-    };
-    
-    // Stubs for album edit/delete logic, assuming they open a modal or call Collection page functions
-    const handleEditAlbum = (album: Album) => {
-        alert(`Editing album: ${album.name}. This would open the edit album modal.`);
-        // To implement fully: setEditingAlbum(album); setIsCreateAlbumModalOpen(true);
-    };
-
-    const handleDeleteAlbum = (album: Album) => {
-        alert(`Deleting album: ${album.name}. This would trigger a confirmation.`);
-        // To implement fully: add confirmation and Supabase call
-    };
-
-    const handleWantlistModalSuccess = () => {
-        setIsWantlistModalOpen(false);
-        fetchProfileData();
-    };
-
-    const handleOpenAddWantlistModal = () => {
-        setEditingWantlistItem(null);
-        setIsWantlistModalOpen(true);
-    };
-
-    const handleOpenEditWantlistModal = (item: WantlistItem) => {
-        setEditingWantlistItem(item);
-        setIsWantlistModalOpen(true);
-    };
-
-    const handleDeleteWantlistItem = async (itemId: string) => {
-        const confirmed = window.confirm("Вы уверены, что хотите удалить этот элемент из вишлиста?");
-        if (confirmed) {
-            const { error } = await supabase
-                .from('wantlist')
-                .delete()
-                .eq('id', itemId);
-            
-            if (error) {
-                console.error('Error deleting wantlist item:', error);
-                alert("Не удалось удалить элемент.");
-            } else {
-                fetchProfileData();
-            }
-        }
-    };
-
-    const handleToggleWantlistFound = (itemId: string, currentStatus: boolean) => {
-        setWantlist(prevItems =>
-          prevItems.map(item =>
-            item.id === itemId
-              ? { ...item, is_found: !currentStatus, is_transitioning: true }
-              : item
-          )
-        );
-
-        setTimeout(() => {
-          setWantlist(prevItems =>
-            prevItems.map(item =>
-              item.id === itemId ? { ...item, is_transitioning: false } : item
-            )
-          );
-        }, 800);
-
-        const updateDatabase = async () => {
-          const { error } = await supabase
-            .from('wantlist')
-            .update({ is_found: !currentStatus })
-            .eq('id', itemId);
-
-          if (error) {
-            console.error('Error toggling found status:', error);
-            alert('Не удалось обновить статус.');
-            setWantlist(prevItems =>
-              prevItems.map(item =>
-                item.id === itemId
-                  ? { ...item, is_found: currentStatus, is_transitioning: false }
-                  : item
-              )
-            );
-          }
-        };
-
-        updateDatabase();
     };
 
     if (loading) {
@@ -359,7 +272,7 @@ const Profile: React.FC<ProfileProps> = ({
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <Stat value={collectibles.length} label="Предметы" />
                         <Stat value={following} label="Подписки" />
-                        <Stat value={wantlist.length} label="В вишлисте" />
+                        <Stat value={wantlistItems.length} label="В вишлисте" />
                         <Stat value={followers} label="Подписчики" />
                     </div>
                 </div>
@@ -387,8 +300,6 @@ const Profile: React.FC<ProfileProps> = ({
                                                 items={itemsInAlbum}
                                                 itemCount={itemsInAlbum.length}
                                                 onClick={() => onViewAlbum(album.id)}
-                                                onEdit={isOwnProfile ? () => handleEditAlbum(album) : undefined}
-                                                onDelete={isOwnProfile ? () => handleDeleteAlbum(album) : undefined}
                                                 isOwnProfile={isOwnProfile}
                                             />
                                         );
@@ -419,35 +330,23 @@ const Profile: React.FC<ProfileProps> = ({
             )}
             
             {view === 'wantlist' && (
-                <div className="mt-8">
-                     {isOwnProfile && (
-                        <div className="flex justify-end mb-4">
-                            <button 
-                                onClick={handleOpenAddWantlistModal}
-                                className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                            >
-                                <PlusIcon className="w-4 h-4" />
-                                <span>Добавить в вишлист</span>
-                            </button>
-                        </div>
-                    )}
-                    {wantlist.length > 0 ? (
-                        <div className="flex flex-col gap-4">
-                           {wantlist.map(item => (
-                                <WantlistItemCard 
-                                    key={item.id} 
-                                    item={item}
-                                    isTransitioning={item.is_transitioning}
-                                    onEdit={isOwnProfile ? () => handleOpenEditWantlistModal(item) : undefined}
-                                    onDelete={isOwnProfile ? () => handleDeleteWantlistItem(item.id) : undefined}
-                                    onToggleFound={isOwnProfile ? () => handleToggleWantlistFound(item.id, !!item.is_found) : undefined}
+                 <div className="mt-8">
+                    {wantlistLists.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           {wantlistLists.map(list => (
+                                <WantlistListCard
+                                    key={list.id}
+                                    list={list}
+                                    items={wantlistItems.filter(i => i.list_id === list.id)}
+                                    onClick={() => onViewWantlist(list.id)}
+                                    isOwnProfile={isOwnProfile}
                                 />
                             ))}
                         </div>
                     ) : (
                         <div className="text-center py-16 bg-base-200 rounded-2xl">
                             <h2 className="text-xl font-bold">{isOwnProfile ? 'Ваш вишлист пуст' : 'Вишлист пользователя пуст'}</h2>
-                             {isOwnProfile && <p className="text-base-content/70 mt-2">Добавьте предметы, которые вы ищете.</p>}
+                             {isOwnProfile && <p className="text-base-content/70 mt-2">Создайте свой первый список желаний на странице "Вишлист".</p>}
                         </div>
                     )}
                 </div>
@@ -458,13 +357,6 @@ const Profile: React.FC<ProfileProps> = ({
             )}
             {isQrModalOpen && (
                 <QRCodeModal profile={profile} onClose={() => setIsQrModalOpen(false)} />
-            )}
-             {isWantlistModalOpen && (
-                <WantlistFormModal
-                    itemToEdit={editingWantlistItem}
-                    onClose={() => setIsWantlistModalOpen(false)}
-                    onSuccess={handleWantlistModalSuccess}
-                />
             )}
         </>
     );
