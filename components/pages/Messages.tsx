@@ -24,7 +24,7 @@ interface ChatPartner extends ProfileData {
 }
 
 const MoreOptionsIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
     </svg>
 );
@@ -94,6 +94,9 @@ const Messages: React.FC<MessagesProps> = ({
     const latestMessages: Record<string, Message> = {};
 
     messages.forEach(msg => {
+        // Ignore old system delete messages for partner list creation
+        if (msg.content.startsWith('[system:deleted_by_')) return;
+
         const partnerId = msg.sender_id === session.user.id ? msg.recipient_id : msg.sender_id;
         if (!partnerIds.has(partnerId)) {
             partnerIds.add(partnerId);
@@ -128,11 +131,6 @@ const Messages: React.FC<MessagesProps> = ({
             lastMessageTimestamp: lastMsg.created_at,
             lastMessageSenderId: lastMsg.sender_id,
         };
-    }).filter(p => {
-        // Filter out "deleted" chats
-        const isSystemDelete = p.lastMessage.startsWith(`[system:deleted_by_`);
-        const wasDeletedByMe = p.lastMessage === `[system:deleted_by_${session.user.id}]`;
-        return !(isSystemDelete && wasDeletedByMe);
     });
 
     setPartners(partnerProfiles);
@@ -192,14 +190,18 @@ const Messages: React.FC<MessagesProps> = ({
                 ? newMessage.recipient_id 
                 : newMessage.sender_id;
             
-            let needsRefetch = false;
+            // If we receive a history cleared message, just refetch everything to be safe
+            if (newMessage.content.startsWith('[system:history_cleared_by_handle:')) {
+                fetchPartners();
+                return;
+            }
             
-            const isSystemDeleteByMe = newMessage.content === `[system:deleted_by_${session.user.id}]`;
-            if (isSystemDeleteByMe) {
-                setPartners(current => current.filter(p => p.id !== partnerId));
+            // Ignore old system delete messages
+            if (newMessage.content.startsWith('[system:deleted_by_')) {
                 return;
             }
 
+            let needsRefetch = false;
 
             setPartners(currentPartners => {
                 const partnerIndex = currentPartners.findIndex(p => p.id === partnerId);
@@ -250,29 +252,30 @@ const Messages: React.FC<MessagesProps> = ({
     e.stopPropagation();
     setOpenMenuId(null);
     
-    const confirmed = window.confirm("Вы уверены, что хотите удалить этот чат? Вы больше не увидите его в списке, пока собеседник не напишет вам снова.");
+    const confirmed = window.confirm("Вы уверены, что хотите очистить историю этого чата? Сообщения будут удалены у обоих собеседников.");
     if (!confirmed) return;
 
-    const { error } = await supabase.from('messages').insert({
-      sender_id: session.user.id,
-      recipient_id: partnerId,
-      content: `[system:deleted_by_${session.user.id}]`,
+    const { error } = await supabase.rpc('clear_chat_history', {
+        partner_id: partnerId
     });
 
     if (error) {
-      console.error("Error deleting chat:", error);
-      alert("Не удалось удалить чат.");
-    } else {
-      setPartners(currentPartners => currentPartners.filter(p => p.id !== partnerId));
-      if (selectedPartner?.id === partnerId) {
-          setSelectedPartner(null);
-      }
+      console.error("Error clearing chat history:", error);
+      alert("Не удалось очистить историю чата.");
     }
+    // No need to manually update state, the real-time listener will handle the new system message
   };
 
   const renderLastMessage = (partner: ChatPartner) => {
+    if (partner.lastMessage.startsWith('[system:history_cleared_by_handle:')) {
+        const handle = partner.lastMessage.split(':')[2].slice(0, -1);
+        const isMe = partner.lastMessageSenderId === session.user.id;
+        return <span className="italic text-base-content/60">{isMe ? 'Вы очистили историю' : `История очищена`}</span>;
+    }
+    
+    // Legacy support for old deleted messages, just in case
     if (partner.lastMessage.startsWith('[system:deleted_by_')) {
-        return <span className="italic text-base-content/60">Собеседник удалил чат</span>;
+        return <span className="italic text-base-content/60">Чат был удален</span>;
     }
 
     const isMyMessage = partner.lastMessageSenderId === session.user.id;
@@ -362,7 +365,7 @@ const Messages: React.FC<MessagesProps> = ({
                                                 className="w-full text-left px-4 py-2 flex items-center gap-3 text-sm text-red-500 hover:bg-red-500/10"
                                             >
                                                 <TrashIcon className="w-4 h-4" />
-                                                <span>Удалить чат</span>
+                                                <span>Очистить историю</span>
                                             </button>
                                         </div>
                                     )}

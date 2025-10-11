@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
@@ -27,8 +25,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
     const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [showItemPicker, setShowItemPicker] = useState(false);
-    const [isDeletedByPartner, setIsDeletedByPartner] = useState(false);
-    const [isDeletedByMe, setIsDeletedByMe] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const isMounted = useRef(true);
@@ -56,19 +52,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 console.error("Error fetching messages:", error.message);
                 setError("Не удалось загрузить сообщения.");
             } else {
-                const allMessages = data as Message[];
-                
-                const partnerDeleted = allMessages.some(m => m.sender_id === recipient.id && m.content.startsWith(`[system:deleted_by_`));
-                setIsDeletedByPartner(partnerDeleted);
-
-                if (!partnerDeleted) {
-                    const iDeleted = allMessages.some(m => m.sender_id === session.user.id && m.content.startsWith(`[system:deleted_by_`));
-                    setIsDeletedByMe(iDeleted);
-                } else {
-                    setIsDeletedByMe(false);
-                }
-
-                setMessages(allMessages.filter(m => !m.content.startsWith('[system')));
+                // Filter out legacy delete messages, but keep new history cleared messages
+                const cleanMessages = data.filter(m => !m.content.startsWith('[system:deleted_by_'));
+                setMessages(cleanMessages as Message[]);
             }
             setLoading(false);
         }
@@ -92,26 +78,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
             }, (payload) => {
                 const newMessagePayload = payload.new as Message;
                 
-                if (newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id) {
-                    if (newMessagePayload.content.startsWith(`[system:deleted_by_`)) {
-                        setIsDeletedByPartner(true);
-                        setIsDeletedByMe(false);
-                    } else if (!newMessagePayload.content.startsWith('[system')) {
-                        setIsDeletedByMe(false);
-                        setMessages(currentMessages => [...currentMessages, newMessagePayload]);
-                    }
+                // Ensure the message belongs to this chat
+                const isMyMessage = newMessagePayload.sender_id === session.user.id && newMessagePayload.recipient_id === recipient.id;
+                const isTheirMessage = newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id;
+                if (!isMyMessage && !isTheirMessage) return;
+
+
+                // If history was cleared, refetch everything to get the single system message
+                if (newMessagePayload.content.startsWith('[system:history_cleared_by_handle:')) {
+                    fetchMessages();
+                    return;
                 }
+
+                // Ignore legacy delete messages
+                if (newMessagePayload.content.startsWith('[system:deleted_by_')) {
+                    return;
+                }
+                
+                // Add the new message to the state
+                setMessages(currentMessages => [...currentMessages, newMessagePayload]);
             })
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [session.user.id, recipient.id]);
+    }, [session.user.id, recipient.id, fetchMessages]);
 
     const handleSendMessage = async (attachedItem?: Pick<Collectible, 'id' | 'name' | 'image_url'>) => {
         const content = newMessage.trim();
-        if ((!content && !attachedItem) || isDeletedByPartner) return;
+        if (!content && !attachedItem) return;
 
         setSending(true);
 
@@ -138,9 +134,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 console.error("Error sending message:", error);
                 alert("Не удалось отправить сообщение.");
             } else if (newMsg) {
-                setMessages(currentMessages => [...currentMessages, newMsg]);
+                // The realtime listener will catch our own message, so we don't need to add it here.
+                // This prevents duplicate messages on the sender's screen.
+                // setMessages(currentMessages => [...currentMessages, newMsg]); 
                 setNewMessage('');
-                setIsDeletedByMe(false);
             }
             setSending(false);
         }
@@ -188,6 +185,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
             <div className="flex-grow overflow-y-auto p-4 space-y-4">
                 {loading ? <p>Загрузка...</p> : error ? <p className="text-red-500">{error}</p> : (
                     messages.map(msg => {
+                         if (msg.content.startsWith('[system:history_cleared_by_handle:')) {
+                            const handle = msg.content.split(':')[2].slice(0, -1);
+                            const isMe = msg.sender_id === session.user.id;
+                            return (
+                                <div key={msg.id} className="text-center text-xs italic text-base-content/60 my-2">
+                                    {isMe ? 'Вы очистили историю чата.' : `Пользователь @${handle} очистил историю чата.`}
+                                </div>
+                            );
+                        }
+
                         const isMe = msg.sender_id === session.user.id;
                         const { text, item } = parseMessage(msg.content);
                         return (
@@ -208,43 +215,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
 
             {/* Input */}
             <div className="flex-shrink-0 p-4 border-t border-base-300 bg-base-200 relative">
-                 {isDeletedByPartner ? (
-                    <div className="text-center text-sm text-base-content/70 p-3 bg-base-100 rounded-xl">
-                        <p className="font-semibold">Собеседник удалил этот чат.</p>
-                        <p>Вы не можете отправлять новые сообщения.</p>
-                    </div>
-                ) : (
-                    <>
-                        {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
-                         {isDeletedByMe && (
-                            <div className="text-center text-xs text-base-content/70 p-2 mb-2 bg-base-100 rounded-lg">
-                                Вы удалили этот чат. Отправка нового сообщения восстановит его.
-                            </div>
-                        )}
-                        <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
-                            <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
-                                <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
-                            </button>
-                            <textarea
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Напишите сообщение..."
-                                className="w-full px-4 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition resize-none"
-                                rows={1}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleFormSubmit(e);
-                                    }
-                                }}
-                                disabled={sending || isDeletedByPartner}
-                            />
-                            <button type="submit" disabled={sending || (!newMessage.trim()) || isDeletedByPartner} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
-                                <SendIcon className="w-5 h-5 text-black"/>
-                            </button>
-                        </form>
-                    </>
-                )}
+                {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
+                <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
+                    <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
+                        <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
+                    </button>
+                    <textarea
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Напишите сообщение..."
+                        className="w-full px-4 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition resize-none"
+                        rows={1}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleFormSubmit(e);
+                            }
+                        }}
+                        disabled={sending}
+                    />
+                    <button type="submit" disabled={sending || !newMessage.trim()} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
+                        <SendIcon className="w-5 h-5 text-black"/>
+                    </button>
+                </form>
             </div>
         </div>
     );
