@@ -28,6 +28,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
     const [sending, setSending] = useState(false);
     const [showItemPicker, setShowItemPicker] = useState(false);
     const [isDeletedByPartner, setIsDeletedByPartner] = useState(false);
+    const [isDeletedByMe, setIsDeletedByMe] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const isMounted = useRef(true);
@@ -56,10 +57,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 setError("Не удалось загрузить сообщения.");
             } else {
                 const allMessages = data as Message[];
+                
                 const partnerDeleted = allMessages.some(m => m.sender_id === recipient.id && m.content.startsWith(`[system:deleted_by_`));
-                if (partnerDeleted) {
-                    setIsDeletedByPartner(true);
+                setIsDeletedByPartner(partnerDeleted);
+
+                if (!partnerDeleted) {
+                    const iDeleted = allMessages.some(m => m.sender_id === session.user.id && m.content.startsWith(`[system:deleted_by_`));
+                    setIsDeletedByMe(iDeleted);
+                } else {
+                    setIsDeletedByMe(false);
                 }
+
                 setMessages(allMessages.filter(m => !m.content.startsWith('[system')));
             }
             setLoading(false);
@@ -87,7 +95,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 if (newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id) {
                     if (newMessagePayload.content.startsWith(`[system:deleted_by_`)) {
                         setIsDeletedByPartner(true);
+                        setIsDeletedByMe(false);
                     } else if (!newMessagePayload.content.startsWith('[system')) {
+                        setIsDeletedByMe(false);
                         setMessages(currentMessages => [...currentMessages, newMessagePayload]);
                     }
                 }
@@ -130,6 +140,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
             } else if (newMsg) {
                 setMessages(currentMessages => [...currentMessages, newMsg]);
                 setNewMessage('');
+                setIsDeletedByMe(false);
             }
             setSending(false);
         }
@@ -205,6 +216,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 ) : (
                     <>
                         {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
+                         {isDeletedByMe && (
+                            <div className="text-center text-xs text-base-content/70 p-2 mb-2 bg-base-100 rounded-lg">
+                                Вы удалили этот чат. Отправка нового сообщения восстановит его.
+                            </div>
+                        )}
                         <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
                             <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
                                 <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
@@ -221,9 +237,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                                         handleFormSubmit(e);
                                     }
                                 }}
-                                disabled={sending}
+                                disabled={sending || isDeletedByPartner}
                             />
-                            <button type="submit" disabled={sending || (!newMessage.trim())} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
+                            <button type="submit" disabled={sending || (!newMessage.trim()) || isDeletedByPartner} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
                                 <SendIcon className="w-5 h-5 text-black"/>
                             </button>
                         </form>
