@@ -3,9 +3,14 @@ import { Profile as ProfileData, Collectible } from '../types';
 import { supabase } from '../supabaseClient';
 import ItemCard from './ItemCard';
 import MessagesIcon from './icons/MessagesIcon';
+import { Session } from '@supabase/supabase-js';
+import UserPlusIcon from './icons/UserPlusIcon';
+import UserMinusIcon from './icons/UserMinusIcon';
+
 
 interface PublicProfileModalProps {
   profile: ProfileData;
+  session: Session;
   onClose: () => void;
   onItemClick: (item: Collectible) => void;
   onStartConversation: (userId: string) => void;
@@ -18,10 +23,13 @@ const StatCard: React.FC<{ value: number; label: string }> = ({ value, label }) 
     </div>
 );
 
-const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, onClose, onItemClick, onStartConversation }) => {
+const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, session, onClose, onItemClick, onStartConversation }) => {
     const [stats, setStats] = useState({ collection: 0, wantlist: 0 });
     const [collection, setCollection] = useState<Collectible[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isFollowing, setIsFollowing] = useState(false);
+    const [loadingFollow, setLoadingFollow] = useState(true);
+    const [followersCount, setFollowersCount] = useState(profile.followers);
     const isMounted = useRef(true);
 
     useEffect(() => {
@@ -63,11 +71,78 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, onClos
         };
         fetchProfileData();
     }, [profile]);
+    
+    useEffect(() => {
+        const checkFollowingStatus = async () => {
+            if (!session || session.user.id === profile.id) {
+                setLoadingFollow(false);
+                return;
+            }
+            setLoadingFollow(true);
+            const { data, error } = await supabase
+                .from('subscriptions')
+                .select('follower_id')
+                .eq('follower_id', session.user.id)
+                .eq('following_id', profile.id)
+                .single();
+
+            if (isMounted.current) {
+                if (error && error.code !== 'PGRST116') { // PGRST116: no rows found, which is fine
+                    console.error("Error checking follow status:", error);
+                }
+                setIsFollowing(!!data);
+                setLoadingFollow(false);
+            }
+        };
+
+        checkFollowingStatus();
+    }, [profile.id, session]);
+
+    const handleFollow = async () => {
+        if (!session || session.user.id === profile.id) return;
+        setLoadingFollow(true);
+        const { error } = await supabase
+            .from('subscriptions')
+            .insert({ follower_id: session.user.id, following_id: profile.id });
+        
+        if (isMounted.current) {
+            if (error) {
+                console.error("Error following user:", error);
+                alert("Не удалось подписаться.");
+            } else {
+                setIsFollowing(true);
+                setFollowersCount(c => c + 1);
+            }
+            setLoadingFollow(false);
+        }
+    };
+
+    const handleUnfollow = async () => {
+        if (!session || session.user.id === profile.id) return;
+        setLoadingFollow(true);
+        const { error } = await supabase
+            .from('subscriptions')
+            .delete()
+            .match({ follower_id: session.user.id, following_id: profile.id });
+
+        if (isMounted.current) {
+            if (error) {
+                console.error("Error unfollowing user:", error);
+                alert("Не удалось отписаться.");
+            } else {
+                setIsFollowing(false);
+                setFollowersCount(c => c - 1);
+            }
+            setLoadingFollow(false);
+        }
+    };
 
     const handleStartChat = () => {
         onStartConversation(profile.id);
         onClose();
     };
+
+    const isOwnProfile = session.user.id === profile.id;
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
@@ -95,6 +170,20 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, onClos
                                             <p className={profile.header_image_url ? 'text-white/80' : 'text-base-content/70'}>{profile.location || 'Местоположение не указано'}</p>
                                         </div>
                                         <div className="flex space-x-2 mt-4 sm:mt-0">
+                                            {!isOwnProfile && (
+                                                <button 
+                                                    onClick={isFollowing ? handleUnfollow : handleFollow}
+                                                    disabled={loadingFollow}
+                                                    className={`font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2 disabled:opacity-50 ${
+                                                        isFollowing 
+                                                        ? 'bg-base-300 text-base-content hover:bg-base-content/20' 
+                                                        : 'bg-primary/80 text-black hover:bg-primary'
+                                                    }`}
+                                                >
+                                                    {isFollowing ? <UserMinusIcon className="w-4 h-4" /> : <UserPlusIcon className="w-4 h-4" />}
+                                                    <span>{isFollowing ? 'Отписаться' : 'Подписаться'}</span>
+                                                </button>
+                                            )}
                                              <button 
                                                 onClick={handleStartChat}
                                                 className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2"
@@ -107,7 +196,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, onClos
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
                                         <StatCard value={stats.collection} label="Предметы" />
                                         <StatCard value={stats.wantlist} label="В вишлисте" />
-                                        <StatCard value={profile.followers} label="Подписчики" />
+                                        <StatCard value={followersCount} label="Подписчики" />
                                     </div>
                                 </div>
                             </div>

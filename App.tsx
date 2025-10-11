@@ -256,7 +256,7 @@ const App: React.FC = () => {
     if (!session) return null;
     switch (currentPage) {
       case 'Feed':
-        return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} />;
+        return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} session={session} />;
       case 'Collection':
         return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
       case 'Wantlist':
@@ -328,6 +328,7 @@ const App: React.FC = () => {
        {viewingProfile && (
         <PublicProfileModal
           profile={viewingProfile}
+          session={session}
           onClose={handleClosePublicProfile}
           onItemClick={handleItemClick}
           onStartConversation={handleStartConversation}

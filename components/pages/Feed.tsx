@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Collectible } from '../../types';
 import ItemCard from '../ItemCard';
 import { supabase } from '../../supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 interface FeedProps {
   onItemClick: (item: Collectible) => void;
   dataVersion: number;
+  session: Session;
 }
 
 const FilterButton: React.FC<{
@@ -23,10 +25,12 @@ const FilterButton: React.FC<{
     </button>
 );
 
-const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion }) => {
+const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion, session }) => {
   const [collectibles, setCollectibles] = useState<Collectible[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
+  const [subscribedCollectibles, setSubscribedCollectibles] = useState<Collectible[]>([]);
+  const [loadingSubscribed, setLoadingSubscribed] = useState(true);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -83,26 +87,110 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, dataVersion }) => {
 
     fetchCollectibles();
   }, [dataVersion, filterCategory]);
+  
+  useEffect(() => {
+    const fetchSubscribedFeed = async () => {
+      if (!session) {
+        setLoadingSubscribed(false);
+        return;
+      }
+      setLoadingSubscribed(true);
+      
+      const { data: subscriptions, error: subError } = await supabase
+        .from('subscriptions')
+        .select('following_id')
+        .eq('follower_id', session.user.id);
+        
+      if (subError || !subscriptions || subscriptions.length === 0) {
+        if(isMounted.current) {
+            setSubscribedCollectibles([]);
+            setLoadingSubscribed(false);
+        }
+        return;
+      }
+      
+      const followingIds = subscriptions.map(s => s.following_id);
+      
+      const { data: subscribedItemsData, error: itemsError } = await supabase
+        .from('collectibles')
+        .select('*')
+        .in('owner_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(20);
+        
+      if (itemsError) {
+        console.error('Error fetching subscribed feed:', itemsError);
+        if(isMounted.current) setLoadingSubscribed(false);
+        return;
+      }
+      
+      if (subscribedItemsData && subscribedItemsData.length > 0) {
+          const ownerIds = [...new Set(subscribedItemsData.map(c => c.owner_id))];
+          const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, handle')
+              .in('id', ownerIds);
 
-  if (loading) {
-    return <div>Загрузка ленты...</div>;
-  }
+          let combinedData;
+          if (profilesError) {
+            console.error('Error fetching profiles for subscribed feed:', profilesError);
+            combinedData = subscribedItemsData; // Fallback
+          } else {
+            const profilesMap = new Map(profilesData.map(p => [p.id, p]));
+            combinedData = subscribedItemsData.map(c => ({
+                ...c,
+                profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle } : null,
+            }));
+          }
+          if (isMounted.current) {
+            setSubscribedCollectibles(combinedData as Collectible[]);
+          }
+      } else {
+        if (isMounted.current) {
+            setSubscribedCollectibles([]);
+        }
+      }
+      if (isMounted.current) setLoadingSubscribed(false);
+    };
+    
+    fetchSubscribedFeed();
+  }, [session, dataVersion]);
+
   
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
-        <h1 className="text-3xl font-bold">Недавно добавленные</h1>
-        <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full self-start sm:self-center">
-            <FilterButton onClick={() => setFilterCategory('all')} isActive={filterCategory === 'all'}>Все</FilterButton>
-            <FilterButton onClick={() => setFilterCategory('coin')} isActive={filterCategory === 'coin'}>Монеты</FilterButton>
-            <FilterButton onClick={() => setFilterCategory('banknote')} isActive={filterCategory === 'banknote'}>Банкноты</FilterButton>
-            <FilterButton onClick={() => setFilterCategory('stamp')} isActive={filterCategory === 'stamp'}>Марки</FilterButton>
+    <div className="space-y-12">
+      {/* Subscribed Feed Section */}
+      {!loadingSubscribed && subscribedCollectibles.length > 0 && (
+        <div>
+          <h1 className="text-3xl font-bold mb-8">Из подписок</h1>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {subscribedCollectibles.map(item => (
+              <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {collectibles.map(item => (
-          <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>
-        ))}
+      )}
+
+      {/* Recently Added Section */}
+      <div>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8 gap-4">
+          <h1 className="text-3xl font-bold">Недавно добавленные</h1>
+          <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full self-start sm:self-center">
+              <FilterButton onClick={() => setFilterCategory('all')} isActive={filterCategory === 'all'}>Все</FilterButton>
+              <FilterButton onClick={() => setFilterCategory('coin')} isActive={filterCategory === 'coin'}>Монеты</FilterButton>
+              <FilterButton onClick={() => setFilterCategory('banknote')} isActive={filterCategory === 'banknote'}>Банкноты</FilterButton>
+              <FilterButton onClick={() => setFilterCategory('stamp')} isActive={filterCategory === 'stamp'}>Марки</FilterButton>
+          </div>
+        </div>
+        {loading ? (
+            <div>Загрузка ленты...</div>
+        ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {collectibles.map(item => (
+                <ItemCard key={item.id} item={item} onItemClick={onItemClick}/>
+                ))}
+            </div>
+        )}
       </div>
     </div>
   );
