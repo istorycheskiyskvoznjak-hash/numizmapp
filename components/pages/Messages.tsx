@@ -270,9 +270,24 @@ const Messages: React.FC<MessagesProps> = ({
     }
   };
 
-  const parseMessageContent = (content: string) => {
-      const parts = content.split('$$ATTACHMENT::');
-      return { text: parts[0] };
+  const renderLastMessage = (partner: ChatPartner) => {
+    if (partner.lastMessage.startsWith('[system:deleted_by_')) {
+        return <span className="italic text-base-content/60">Собеседник удалил чат</span>;
+    }
+
+    const isMyMessage = partner.lastMessageSenderId === session.user.id;
+    
+    const contentParts = partner.lastMessage.split('$$ATTACHMENT::');
+    const text = contentParts[0];
+
+    const messageText = text.trim() || 'Предмет из коллекции';
+    
+    return (
+        <>
+            {isMyMessage && 'Вы: '}
+            {messageText}
+        </>
+    );
   };
 
   if (loading) {
@@ -322,8 +337,7 @@ const Messages: React.FC<MessagesProps> = ({
                                         )}
                                     </div>
                                     <p className="text-sm text-base-content/70 truncate">
-                                      {partner.lastMessageSenderId === session.user.id && 'Вы: '}
-                                      {parseMessageContent(partner.lastMessage).text || 'Предмет из коллекции'}
+                                      {renderLastMessage(partner)}
                                     </p>
                                 </div>
                                 <div className="relative" data-options-container>

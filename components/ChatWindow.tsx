@@ -27,6 +27,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
     const [error, setError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [showItemPicker, setShowItemPicker] = useState(false);
+    const [isDeletedByPartner, setIsDeletedByPartner] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const isMounted = useRef(true);
@@ -54,7 +55,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 console.error("Error fetching messages:", error.message);
                 setError("Не удалось загрузить сообщения.");
             } else {
-                setMessages((data as Message[]).filter(m => !m.content.startsWith('[system')));
+                const allMessages = data as Message[];
+                const partnerDeleted = allMessages.some(m => m.sender_id === recipient.id && m.content.startsWith(`[system:deleted_by_`));
+                if (partnerDeleted) {
+                    setIsDeletedByPartner(true);
+                }
+                setMessages(allMessages.filter(m => !m.content.startsWith('[system')));
             }
             setLoading(false);
         }
@@ -77,8 +83,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
                 table: 'messages',
             }, (payload) => {
                 const newMessagePayload = payload.new as Message;
-                if ((newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id) && !newMessagePayload.content.startsWith('[system')) {
-                    setMessages(currentMessages => [...currentMessages, newMessagePayload]);
+                
+                if (newMessagePayload.sender_id === recipient.id && newMessagePayload.recipient_id === session.user.id) {
+                    if (newMessagePayload.content.startsWith(`[system:deleted_by_`)) {
+                        setIsDeletedByPartner(true);
+                    } else if (!newMessagePayload.content.startsWith('[system')) {
+                        setMessages(currentMessages => [...currentMessages, newMessagePayload]);
+                    }
                 }
             })
             .subscribe();
@@ -86,11 +97,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [session.user.id, recipient.id, fetchMessages]);
+    }, [session.user.id, recipient.id]);
 
     const handleSendMessage = async (attachedItem?: Pick<Collectible, 'id' | 'name' | 'image_url'>) => {
         const content = newMessage.trim();
-        if (!content && !attachedItem) return;
+        if ((!content && !attachedItem) || isDeletedByPartner) return;
 
         setSending(true);
 
@@ -186,29 +197,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, recipient, onBack, onI
 
             {/* Input */}
             <div className="flex-shrink-0 p-4 border-t border-base-300 bg-base-200 relative">
-                {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
-                <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
-                    <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
-                        <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
-                    </button>
-                    <textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Напишите сообщение..."
-                        className="w-full px-4 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition resize-none"
-                        rows={1}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleFormSubmit(e);
-                            }
-                        }}
-                        disabled={sending}
-                    />
-                    <button type="submit" disabled={sending || (!newMessage.trim())} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
-                        <SendIcon className="w-5 h-5 text-black"/>
-                    </button>
-                </form>
+                 {isDeletedByPartner ? (
+                    <div className="text-center text-sm text-base-content/70 p-3 bg-base-100 rounded-xl">
+                        <p className="font-semibold">Собеседник удалил этот чат.</p>
+                        <p>Вы не можете отправлять новые сообщения.</p>
+                    </div>
+                ) : (
+                    <>
+                        {showItemPicker && <CollectionItemPicker session={session} onClose={() => setShowItemPicker(false)} onSelectItem={handleSelectItem} />}
+                        <form onSubmit={handleFormSubmit} className="flex items-center gap-3">
+                            <button type="button" onClick={() => setShowItemPicker(p => !p)} className="p-2 rounded-full hover:bg-base-300 transition-colors" aria-label="Прикрепить предмет">
+                                <AttachCollectibleIcon className="w-6 h-6 text-base-content/80"/>
+                            </button>
+                            <textarea
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                placeholder="Напишите сообщение..."
+                                className="w-full px-4 py-2 bg-base-100 border border-base-300 rounded-full text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition resize-none"
+                                rows={1}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleFormSubmit(e);
+                                    }
+                                }}
+                                disabled={sending}
+                            />
+                            <button type="submit" disabled={sending || (!newMessage.trim())} className="p-3 rounded-full bg-primary hover:scale-110 transition-transform disabled:opacity-50 disabled:scale-100">
+                                <SendIcon className="w-5 h-5 text-black"/>
+                            </button>
+                        </form>
+                    </>
+                )}
             </div>
         </div>
     );
