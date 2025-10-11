@@ -1,7 +1,6 @@
 import React from 'react';
-import { Page, Theme, Notification } from '../types';
+import { Page, Theme } from '../types';
 import Header from './Header';
-import PlusIcon from './icons/PlusIcon';
 
 interface LayoutProps {
   currentPage: Page;
@@ -10,10 +9,6 @@ interface LayoutProps {
   toggleTheme: () => void;
   children: React.ReactNode;
   unreadMessageCount: number;
-  notifications: Notification[];
-  unreadNotificationsCount: number;
-  markNotificationsAsRead: () => void;
-  onNotificationClick: (itemId: string) => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -23,10 +18,6 @@ const Layout: React.FC<LayoutProps> = ({
     toggleTheme, 
     children, 
     unreadMessageCount,
-    notifications,
-    unreadNotificationsCount,
-    markNotificationsAsRead,
-    onNotificationClick
 }) => {
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
@@ -36,10 +27,6 @@ const Layout: React.FC<LayoutProps> = ({
         theme={theme}
         toggleTheme={toggleTheme}
         unreadMessageCount={unreadMessageCount}
-        notifications={notifications}
-        unreadNotificationsCount={unreadNotificationsCount}
-        markNotificationsAsRead={markNotificationsAsRead}
-        onNotificationClick={onNotificationClick}
       />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}

@@ -35,17 +35,19 @@ const WantlistMatchesModal: React.FC<WantlistMatchesModalProps> = ({ item, onClo
                 return;
             }
 
-            // Step 1: Find matching wantlist items from other users
+            // Step 1: Call the database function to find matches. This is necessary to bypass
+            // Row Level Security (RLS) policies that might prevent users from seeing each other's wantlists.
             const { data: wantlistData, error: wantlistError } = await supabase
-                .from('wantlist')
-                .select('*')
-                .neq('user_id', item.owner_id)
-                .ilike('name', `%${searchTerms}%`);
+                .rpc('find_wantlist_matches', {
+                    item_name: searchTerms,
+                    owner_id_to_exclude: item.owner_id
+                });
+
 
             if (!isMounted.current) return;
 
             if (wantlistError) {
-                console.error("Error fetching wantlist items:", wantlistError.message);
+                console.error("Error fetching wantlist matches via RPC:", wantlistError.message);
                 setMatches([]);
                 setLoading(false);
                 return;

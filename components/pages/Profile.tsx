@@ -3,10 +3,10 @@ import { Collectible, Profile as ProfileData } from '../../types';
 import ItemCard from '../ItemCard';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../supabaseClient';
-import { MOCK_WANTLIST } from '../../constants';
 import EditProfileModal from '../EditProfileModal';
 import EditIcon from '../icons/EditIcon';
 import QrCodeIcon from '../icons/QrCodeIcon';
+import QRCodeModal from '../QRCodeModal';
 
 interface ProfileProps {
   onItemClick: (item: Collectible) => void;
@@ -23,8 +23,10 @@ const StatCard: React.FC<{ value: number; label: string }> = ({ value, label }) 
 const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [collection, setCollection] = useState<Collectible[]>([]);
+    const [wantlistCount, setWantlistCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const isMounted = useRef(true);
 
     useEffect(() => {
@@ -35,7 +37,6 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
     }, []);
 
     const fetchProfileData = useCallback(async () => {
-        // Don't set loading to true here to avoid flicker on refresh
         const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -47,6 +48,11 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
             .select('*')
             .eq('owner_id', session.user.id);
         
+        const { count: fetchedWantlistCount, error: wantlistError } = await supabase
+            .from('wantlist')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', session.user.id);
+
         if (isMounted.current) {
             if (profileError) {
                 console.error('Error fetching profile:', profileError.message);
@@ -62,6 +68,12 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
                     profiles: profileData ? { handle: profileData.handle } : null
                 }));
                 setCollection(itemsWithProfile as Collectible[]);
+            }
+            
+            if (wantlistError) {
+                console.error('Error fetching wantlist count:', wantlistError.message);
+            } else {
+                setWantlistCount(fetchedWantlistCount || 0);
             }
             
             setLoading(false);
@@ -103,7 +115,7 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
                                 <EditIcon className="w-4 h-4" />
                                 <span>Редактировать</span>
                             </button>
-                            <button className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2">
+                            <button onClick={() => setIsQrModalOpen(true)} className="bg-base-300 hover:bg-secondary font-semibold py-2 px-4 rounded-full text-sm transition-colors flex items-center gap-2">
                                 <QrCodeIcon className="w-4 h-4" />
                                 <span>QR-код</span>
                             </button>
@@ -111,7 +123,7 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
                         <StatCard value={collection.length} label="Предметы" />
-                        <StatCard value={MOCK_WANTLIST.length} label="В вишлисте" />
+                        <StatCard value={wantlistCount} label="В вишлисте" />
                         <StatCard value={profile.followers} label="Подписчики" />
                     </div>
                 </div>
@@ -130,6 +142,12 @@ const Profile: React.FC<ProfileProps> = ({ onItemClick, session }) => {
                     profile={profile}
                     onClose={() => setIsEditModalOpen(false)}
                     onSuccess={handleProfileUpdateSuccess}
+                />
+            )}
+            {isQrModalOpen && (
+                <QRCodeModal
+                    profile={profile}
+                    onClose={() => setIsQrModalOpen(false)}
                 />
             )}
         </>

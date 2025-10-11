@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { Page, Theme, Notification } from '../types';
+import React from 'react';
+import { Page, Theme } from '../types';
 import LogoIcon from './icons/LogoIcon';
 import { supabase } from '../supabaseClient';
 import SunIcon from './icons/SunIcon';
 import MoonIcon from './icons/MoonIcon';
 import LogoutIcon from './icons/LogoutIcon';
-import BellIcon from './icons/BellIcon';
-import Notifications from './Notifications';
 
 interface HeaderProps {
   currentPage: Page;
@@ -14,10 +12,6 @@ interface HeaderProps {
   theme: Theme;
   toggleTheme: () => void;
   unreadMessageCount: number;
-  notifications: Notification[];
-  unreadNotificationsCount: number;
-  markNotificationsAsRead: () => void;
-  onNotificationClick: (itemId: string) => void;
 }
 
 const pageTitles: Record<Page, string> = {
@@ -55,24 +49,9 @@ const Header: React.FC<HeaderProps> = ({
     theme, 
     toggleTheme, 
     unreadMessageCount,
-    notifications,
-    unreadNotificationsCount,
-    markNotificationsAsRead,
-    onNotificationClick
 }) => {
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const handleLogout = async () => {
     await supabase.auth.signOut();
-  };
-  
-  const handleToggleNotifications = () => {
-    setIsNotificationsOpen(prev => {
-        const newIsOpen = !prev;
-        if (newIsOpen) {
-            markNotificationsAsRead();
-        }
-        return newIsOpen;
-    });
   };
 
   return (
@@ -103,29 +82,6 @@ const Header: React.FC<HeaderProps> = ({
                 <LogoutIcon className="w-4 h-4" />
                 <span>Выйти</span>
             </button>
-            <div className="relative">
-                 <button
-                  onClick={handleToggleNotifications}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors"
-                  aria-label="Открыть уведомления"
-                >
-                  <BellIcon className="w-5 h-5" />
-                   {unreadNotificationsCount > 0 && (
-                    <span className="absolute top-1 right-1 inline-flex items-center justify-center h-4 w-4 text-xs font-bold text-white bg-red-500 rounded-full border-2 border-base-100">
-                    </span>
-                  )}
-                </button>
-                {isNotificationsOpen && (
-                    <Notifications
-                        notifications={notifications}
-                        onClose={() => setIsNotificationsOpen(false)}
-                        onNotificationClick={(itemId) => {
-                            onNotificationClick(itemId);
-                            setIsNotificationsOpen(false);
-                        }}
-                    />
-                )}
-            </div>
             <button
               onClick={toggleTheme}
               className="flex items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors"

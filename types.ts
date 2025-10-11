@@ -76,22 +76,21 @@ export interface Message {
   is_read: boolean;
 }
 
+// FIX: Added the missing 'Notification' type. This type is used in the Notifications component.
 export interface Notification {
   id: string;
   created_at: string;
-  recipient_id: string;
   sender_id: string;
-  type: 'WANTLIST_MATCH';
-  is_read: boolean;
+  recipient_id: string;
   collectible_id: string;
   wantlist_item_name: string;
-  // Joined data for display
-  profiles?: { // Sender's profile
+  is_read: boolean;
+  profiles: {
     name: string;
     handle: string;
     avatar_url: string;
   } | null;
-  collectibles?: { // Matched collectible
+  collectibles: {
     name: string;
     image_url: string | null;
   } | null;
