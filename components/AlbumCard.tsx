@@ -9,8 +9,8 @@ interface AlbumCardProps {
   itemCount: number;
   coverImageUrl: string | null;
   onClick: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const AlbumCard: React.FC<AlbumCardProps> = ({ album, itemCount, coverImageUrl, onClick, onEdit, onDelete }) => {
@@ -34,12 +34,12 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, itemCount, coverImageUrl, 
   
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering onClick for the whole card
-    onEdit();
+    if (onEdit) onEdit();
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering onClick for the whole card
-    onDelete();
+    if (onDelete) onDelete();
   };
   
   const toggleDescription = (e: React.MouseEvent) => {
@@ -86,14 +86,20 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, itemCount, coverImageUrl, 
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-2 self-center ml-auto pl-2">
-        <button onClick={handleEditClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-secondary transition-colors" aria-label="Редактировать альбом">
-          <EditIcon className="w-4 h-4" />
-        </button>
-        <button onClick={handleDeleteClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-red-500/20 hover:!text-red-500 transition-colors" aria-label="Удалить альбом">
-          <TrashIcon className="w-4 h-4" />
-        </button>
-      </div>
+      {(onEdit || onDelete) && (
+        <div className="flex flex-col sm:flex-row gap-2 self-center ml-auto pl-2">
+          {onEdit && (
+            <button onClick={handleEditClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-secondary transition-colors" aria-label="Редактировать альбом">
+              <EditIcon className="w-4 h-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={handleDeleteClick} className="p-2.5 rounded-full bg-base-300 group-hover:bg-base-100 hover:!bg-red-500/20 hover:!text-red-500 transition-colors" aria-label="Удалить альбом">
+              <TrashIcon className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

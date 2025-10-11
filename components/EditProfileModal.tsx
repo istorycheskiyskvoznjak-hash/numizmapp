@@ -28,6 +28,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
     const [location, setLocation] = useState(profile.location);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
+    const [headerFile, setHeaderFile] = useState<File | null>(null);
+    const [headerPreview, setHeaderPreview] = useState<string | null>(profile.header_image_url);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,14 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
         }
     };
 
+    const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setHeaderFile(file);
+            setHeaderPreview(URL.createObjectURL(file));
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -55,6 +65,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
 
         try {
             let updatedAvatarUrl = profile.avatar_url;
+            let updatedHeaderUrl = profile.header_image_url;
 
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();
@@ -64,7 +75,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                     .from('avatars') 
                     .upload(filePath, avatarFile, {
                         cacheControl: '3600',
-                        upsert: true, // Overwrite existing file to save space
+                        upsert: true,
                     });
 
                 if (uploadError) throw uploadError;
@@ -73,8 +84,27 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                     .from('avatars')
                     .getPublicUrl(filePath);
                 
-                // Add a timestamp to bust CDN cache if the URL remains the same
                 updatedAvatarUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
+            }
+
+            if (headerFile) {
+                const fileExt = headerFile.name.split('.').pop();
+                const filePath = `${profile.id}/header.${fileExt}`;
+                
+                const { error: uploadError } = await supabase.storage
+                    .from('headers')
+                    .upload(filePath, headerFile, {
+                        cacheControl: '3600',
+                        upsert: true,
+                    });
+
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage
+                    .from('headers')
+                    .getPublicUrl(filePath);
+                
+                updatedHeaderUrl = `${data.publicUrl}?t=${new Date().getTime()}`;
             }
             
             const { error: updateError } = await supabase
@@ -83,7 +113,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                     name,
                     handle,
                     location,
-                    avatar_url: updatedAvatarUrl
+                    avatar_url: updatedAvatarUrl,
+                    header_image_url: updatedHeaderUrl
                 })
                 .eq('id', profile.id);
 
@@ -123,6 +154,28 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ profile, onClose, o
                             type="file" 
                             accept="image/png, image/jpeg, image/webp" 
                             onChange={handleAvatarChange} 
+                            className="hidden" 
+                        />
+                    </div>
+                     <div>
+                        <label className="text-sm font-medium text-base-content/80">
+                            Обложка профиля
+                        </label>
+                        <label htmlFor="header-upload" className="mt-1 group relative w-full h-32 bg-base-100 border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center cursor-pointer">
+                            {headerPreview ? (
+                                <img src={headerPreview} alt="Header preview" className="w-full h-full object-cover rounded-lg" />
+                            ) : (
+                                <span className="text-sm text-base-content/60">Нажмите для загрузки</span>
+                            )}
+                            <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-white text-sm font-semibold">Сменить обложку</span>
+                            </div>
+                        </label>
+                         <input 
+                            id="header-upload" 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp" 
+                            onChange={handleHeaderChange} 
                             className="hidden" 
                         />
                     </div>

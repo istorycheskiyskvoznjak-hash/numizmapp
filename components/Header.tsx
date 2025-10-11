@@ -5,6 +5,11 @@ import { supabase } from '../supabaseClient';
 import SunIcon from './icons/SunIcon';
 import MoonIcon from './icons/MoonIcon';
 import LogoutIcon from './icons/LogoutIcon';
+import FeedIcon from './icons/FeedIcon';
+import RectangleGroupIcon from './icons/RectangleGroupIcon';
+import HeartIcon from './icons/HeartIcon';
+import MessagesIcon from './icons/MessagesIcon';
+import UserCircleIcon from './icons/UserCircleIcon';
 
 interface HeaderProps {
   currentPage: Page;
@@ -22,6 +27,15 @@ const pageTitles: Record<Page, string> = {
   Profile: 'Профиль',
 };
 
+const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {
+  Feed: FeedIcon,
+  Collection: RectangleGroupIcon,
+  Wantlist: HeartIcon,
+  Messages: MessagesIcon,
+  Profile: UserCircleIcon,
+};
+
+
 const NavLink: React.FC<{
   page: Page;
   currentPage: Page;
@@ -29,15 +43,17 @@ const NavLink: React.FC<{
   children: React.ReactNode;
 }> = ({ page, currentPage, setCurrentPage, children }) => {
   const isActive = currentPage === page;
+  const Icon = pageIcons[page];
   return (
     <button
       onClick={() => setCurrentPage(page)}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 flex items-center ${
+      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200 flex items-center gap-2 ${
         isActive
           ? 'bg-base-300 text-base-content'
           : 'text-base-content/70 hover:bg-base-200'
       }`}
     >
+      <Icon className="w-5 h-5" />
       {children}
     </button>
   );

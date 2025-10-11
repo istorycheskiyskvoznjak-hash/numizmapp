@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Page, Theme, Collectible, Message, Profile as ProfileData } from './types';
+import { Page, Theme, Collectible, Message, Profile as ProfileData, Album } from './types';
 import Layout from './components/Layout';
 import Feed from './components/pages/Feed';
 import Collection from './components/pages/Collection';
@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
   const [unreadMessages, setUnreadMessages] = useState<Record<string, number>>({});
   const [viewingProfile, setViewingProfile] = useState<ProfileData | null>(null);
+  const [initialAlbumId, setInitialAlbumId] = useState<string | null>(null);
   const isMounted = useRef(true);
 
   useEffect(() => {
@@ -199,6 +200,20 @@ const App: React.FC = () => {
     // Clear URL params to avoid re-opening on refresh
     window.history.replaceState({}, document.title, window.location.pathname);
   };
+  
+  const handleViewAlbum = (albumId: string) => {
+    setInitialAlbumId(albumId);
+    setCurrentPage('Collection');
+  };
+
+  const handleViewCollection = () => {
+    setInitialAlbumId(null);
+    setCurrentPage('Collection');
+  };
+  
+  const handleViewWantlist = () => {
+      setCurrentPage('Wantlist');
+  };
 
   const handleItemClickById = async (itemId: string) => {
     if (!itemId) return;
@@ -243,7 +258,7 @@ const App: React.FC = () => {
       case 'Feed':
         return <Feed onItemClick={handleItemClick} dataVersion={dataVersion} />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation}/>;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)}/>;
       case 'Wantlist':
         return <Wantlist />;
       case 'Messages':
@@ -256,9 +271,21 @@ const App: React.FC = () => {
             onItemClick={handleItemClickById} 
             onViewProfile={(profile) => setViewingProfile(profile as ProfileData)} />;
       case 'Profile':
-        return <Profile session={session} onItemClick={handleItemClick}/>;
+        return <Profile 
+            session={session} 
+            onItemClick={handleItemClick} 
+            onViewAlbum={handleViewAlbum} 
+            onViewCollection={handleViewCollection}
+            onViewWantlist={handleViewWantlist}
+        />;
       default:
-        return <Profile session={session} onItemClick={handleItemClick}/>;
+        return <Profile 
+            session={session} 
+            onItemClick={handleItemClick} 
+            onViewAlbum={handleViewAlbum} 
+            onViewCollection={handleViewCollection}
+            onViewWantlist={handleViewWantlist}
+        />;
     }
   };
 

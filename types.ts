@@ -8,6 +8,7 @@ export interface Profile {
   handle: string | null;
   location: string | null;
   avatar_url: string;
+  header_image_url: string | null;
   followers: number;
 }
 
@@ -78,7 +79,7 @@ export interface Message {
 
 // FIX: Added the missing 'Notification' type to resolve import error.
 export interface Notification {
-  id: string;
+  id:string;
   collectible_id: string;
   sender_id: string;
   wantlist_item_name: string;

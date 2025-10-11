@@ -12,9 +12,9 @@ interface PublicProfileModalProps {
 }
 
 const StatCard: React.FC<{ value: number; label: string }> = ({ value, label }) => (
-    <div className="bg-base-200 p-6 rounded-xl text-center">
-        <p className="text-3xl font-bold">{value}</p>
-        <p className="text-sm text-base-content/70">{label}</p>
+    <div className="bg-base-content/10 backdrop-blur-sm rounded-xl p-4 text-center">
+        <p className="text-4xl font-bold">{value}</p>
+        <p className="text-sm text-current opacity-70">{label}</p>
     </div>
 );
 
@@ -77,27 +77,38 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ profile, onClos
                         <p>Загрузка профиля...</p>
                     ) : (
                         <div className="space-y-12">
-                            <div className="bg-base-200 p-8 rounded-2xl">
-                                <div className="flex flex-col sm:flex-row items-start space-x-6">
-                                    <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-24 h-24 rounded-lg object-cover mb-4 sm:mb-0" />
-                                    <div className="flex-grow">
-                                        <h1 className="text-3xl font-bold">{profile.name || 'Безымянный'} <span className="text-base-content/60">@{profile.handle || 'user'}</span></h1>
-                                        <p className="text-base-content/70">{profile.location || 'Местоположение не указано'}</p>
+                            <div className="bg-base-200 p-6 rounded-2xl relative overflow-hidden">
+                                {profile.header_image_url && (
+                                    <img 
+                                        src={profile.header_image_url} 
+                                        alt="Profile header" 
+                                        className="absolute inset-0 w-full h-full object-cover" 
+                                    />
+                                )}
+                                <div className={`absolute inset-0 ${profile.header_image_url ? 'bg-black/50' : ''}`}></div>
+                                
+                                <div className={`relative ${profile.header_image_url ? 'text-white' : ''}`}>
+                                    <div className="flex flex-col sm:flex-row items-start space-x-6">
+                                        <img src={profile.avatar_url} alt={profile.name || 'Avatar'} className="w-24 h-24 rounded-lg object-cover mb-4 sm:mb-0 border-4 border-base-300" />
+                                        <div className="flex-grow">
+                                            <h1 className="text-3xl font-bold">{profile.name || 'Безымянный'} <span className={profile.header_image_url ? 'text-white/70' : 'text-base-content/60'}>@{profile.handle || 'user'}</span></h1>
+                                            <p className={profile.header_image_url ? 'text-white/80' : 'text-base-content/70'}>{profile.location || 'Местоположение не указано'}</p>
+                                        </div>
+                                        <div className="flex space-x-2 mt-4 sm:mt-0">
+                                             <button 
+                                                onClick={handleStartChat}
+                                                className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2"
+                                                >
+                                                <MessagesIcon className="w-4 h-4" />
+                                                <span>Написать</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex space-x-2 mt-4 sm:mt-0">
-                                         <button 
-                                            onClick={handleStartChat}
-                                            className="bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors flex items-center gap-2"
-                                            >
-                                            <MessagesIcon className="w-4 h-4" />
-                                            <span>Написать</span>
-                                        </button>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+                                        <StatCard value={stats.collection} label="Предметы" />
+                                        <StatCard value={stats.wantlist} label="В вишлисте" />
+                                        <StatCard value={profile.followers} label="Подписчики" />
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-                                    <StatCard value={stats.collection} label="Предметы" />
-                                    <StatCard value={stats.wantlist} label="В вишлисте" />
-                                    <StatCard value={profile.followers} label="Подписчики" />
                                 </div>
                             </div>
                             

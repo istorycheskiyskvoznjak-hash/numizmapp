@@ -32,6 +32,8 @@ interface CollectionProps {
   refreshData: () => void;
   openAddItemModal: (initialAlbumId?: string | null) => void;
   onStartConversation: (userId: string) => void;
+  initialAlbumId: string | null;
+  clearInitialAlbumId: () => void;
 }
 
 const FilterButton: React.FC<{
@@ -198,7 +200,7 @@ const Pagination: React.FC<{
   );
 };
 
-const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation }) => {
+const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refreshData, openAddItemModal, onStartConversation, initialAlbumId, clearInitialAlbumId }) => {
   const [userItems, setUserItems] = useState<Collectible[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,6 +262,16 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
 
     fetchCollectionData();
   }, [dataVersion]);
+
+  useEffect(() => {
+    if (initialAlbumId && albums.length > 0) {
+        const albumToSelect = albums.find(a => a.id === initialAlbumId);
+        if (albumToSelect) {
+            setSelectedAlbum(albumToSelect);
+        }
+        clearInitialAlbumId();
+    }
+  }, [initialAlbumId, albums, clearInitialAlbumId]);
   
   const applyFilters = (items: Collectible[], filters: typeof initialFilters) => {
     let filteredItems = items;
@@ -415,7 +427,7 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
             {albums.length > 0 && (
                  <div className="mt-12">
                     <h2 className="text-2xl font-bold mb-6">Альбомы</h2>
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {albums.map(album => {
                             const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
                             const latestItemWithImage = itemsInAlbum.find(item => item.image_url);
