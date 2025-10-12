@@ -26,12 +26,12 @@ const pageTitles: Record<Page, string> = {
   Feed: 'Лента',
   SubscriptionFeed: 'Лента',
   Collection: 'Коллекция',
-  Wantlist: 'Вишлист',
+  Wantlist: 'Вишлисты',
   Messages: 'Сообщения',
   Profile: 'Профиль',
   PublicProfile: 'Профиль',
   // FIX: Added missing 'PublicWantlist' property to match the Page type.
-  PublicWantlist: 'Вишлист',
+  PublicWantlist: 'Вишлисты',
 };
 
 const pageIcons: Record<Page, React.FC<React.SVGProps<SVGSVGElement>>> = {

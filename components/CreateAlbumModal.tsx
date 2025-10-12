@@ -58,7 +58,7 @@ const ImageUploadField: React.FC<{
     </div>
 );
 
-type ThemeColor = 'default' | 'primary' | 'secondary';
+type ThemeColor = 'default' | 'primary' | 'secondary' | 'glass';
 
 const ColorSwatch: React.FC<{
     value: ThemeColor;
@@ -273,10 +273,11 @@ const CreateAlbumModal: React.FC<CreateAlbumModalProps> = ({ albumToEdit, onClos
 
                      <div>
                         <label className="text-sm font-medium text-base-content/80">Цвет альбома</label>
-                        <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
                             <ColorSwatch value="default" selected={themeColor} onClick={setThemeColor} label="Стандарт" bgColor="bg-base-300" />
                             <ColorSwatch value="primary" selected={themeColor} onClick={setThemeColor} label="Акцент" bgColor="bg-primary" />
                             <ColorSwatch value="secondary" selected={themeColor} onClick={setThemeColor} label="Вторичный" bgColor="bg-secondary" />
+                            <ColorSwatch value="glass" selected={themeColor} onClick={setThemeColor} label="Стекло" bgColor="bg-gray-500/10 backdrop-blur-sm border border-white/20" />
                         </div>
                     </div>
 

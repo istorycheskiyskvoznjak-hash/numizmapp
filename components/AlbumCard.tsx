@@ -17,15 +17,12 @@ interface AlbumCardProps {
 
 const PrivacyBadge: React.FC<{ isPublic: boolean }> = ({ isPublic }) => {
   const Icon = isPublic ? EyeIcon : LockClosedIcon;
-  const text = isPublic ? 'Публичный' : 'Приватный';
-  const bgColor = isPublic ? 'bg-emerald-500/30' : 'bg-amber-500/30';
-  const textColor = isPublic ? 'text-emerald-200' : 'text-amber-200';
-  const borderColor = isPublic ? 'border-emerald-300/50' : 'border-amber-300/50';
-
   return (
-    <div title={isPublic ? 'Этот альбом виден всем' : 'Этот альбом виден только вам'} className={`absolute top-3 left-3 z-10 flex items-center gap-1.5 ${bgColor} ${textColor} text-xs font-bold px-2.5 py-1 rounded-full border ${borderColor} backdrop-blur-sm`}>
-      <Icon className="w-3.5 h-3.5" />
-      <span>{text}</span>
+    <div title={isPublic ? 'Этот альбом виден всем' : 'Этот альбом виден только вам'} className={`relative flex items-center justify-center bg-primary text-primary-content w-7 h-7 rounded-full shadow-sm`}>
+      <Icon className="w-4 h-4" />
+      {!isPublic && (
+        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-primary" />
+      )}
     </div>
   );
 };
@@ -91,6 +88,15 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
           coverBorderHover: 'group-hover:border-secondary-content/60',
           coverPlaceholderText: 'text-secondary-content/50',
           ring: 'ring-secondary-focus/50 focus-visible:ring-secondary-focus'
+      },
+      glass: {
+        bg: 'bg-base-300', // Fallback for when no header image is provided
+        textColor: 'text-white',
+        paneBg: 'bg-black/20 backdrop-blur-sm border border-white/10',
+        coverBorder: 'border-primary/40',
+        coverBorderHover: 'group-hover:border-primary/70',
+        coverPlaceholderText: 'text-white/70', // Not used for glass theme
+        ring: 'ring-primary/50 focus-visible:ring-primary'
       }
   };
   const currentTheme = themeClasses[theme];
@@ -110,14 +116,18 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
       {/* Layer 2 & 3: Vignette + Overlay */}
       {hasHeader && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/30"></div>}
       
-      {isOwnProfile && <PrivacyBadge isPublic={album.is_public} />}
-      
       {/* Main Content Grid */}
       <div className="relative grid grid-cols-12 gap-x-4 sm:gap-x-6 p-4 h-full">
         {/* Left Column: Cover */}
         <div className="col-span-5 flex items-center justify-center">
             <div className="relative w-[90%] aspect-square transition-transform duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-105">
-                {finalCoverUrl ? (
+                {theme === 'glass' ? (
+                    <div className={`w-full h-full flex flex-col items-center justify-center bg-primary/10 backdrop-blur-md rounded-lg border-2 ${currentTheme.coverBorder} ${currentTheme.coverBorderHover} p-2 text-center shadow-inner transition-colors duration-300`}>
+                        <h4 className="font-serif text-lg sm:text-xl uppercase tracking-widest text-primary [text-shadow:0_1px_4px_rgba(0,0,0,0.7)] leading-tight">
+                            {album.cover_text || album.name}
+                        </h4>
+                    </div>
+                ) : finalCoverUrl ? (
                     <div className={`relative w-full h-full bg-black rounded-lg shadow-lg border-2 ${currentTheme.coverBorder} ${currentTheme.coverBorderHover} transition-colors duration-300 p-1`}>
                         <img src={finalCoverUrl} alt={`Cover for ${album.name}`} className="h-full w-full object-cover rounded-[3px] shadow-inner" />
                         {/* Hover Sheen Effect */}
@@ -158,12 +168,21 @@ const AlbumCard: React.FC<AlbumCardProps> = ({ album, items, itemCount, onClick,
               )}
             </div>
             
-            <div className="pt-2 flex items-center gap-2 flex-wrap">
-                {itemCount > 4 && (
+            <div className="pt-2 flex justify-between items-center gap-2 flex-wrap">
+              <div>
+                {itemCount > 4 ? (
                     <div className="bg-primary text-primary-content font-semibold py-1 px-4 rounded-full text-sm shadow-sm">
                         и ещё {itemCount - 4} {getItemCountText(itemCount - 4)}
                     </div>
+                ) : (
+                    <div className="bg-primary/80 text-primary-content font-semibold py-1 px-4 rounded-full text-sm shadow-sm group-hover:bg-primary transition-colors">
+                        Открыть альбом
+                    </div>
                 )}
+              </div>
+              <div>
+                {isOwnProfile && <PrivacyBadge isPublic={album.is_public} />}
+              </div>
             </div>
           </div>
         </div>

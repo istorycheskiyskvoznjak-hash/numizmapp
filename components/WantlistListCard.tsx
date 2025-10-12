@@ -57,9 +57,12 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
                 <p className="text-base-content/70 text-sm">{items.length} {getItemCountText(items.length)}</p>
             </div>
             {(isOwnProfile || list.is_public) && (
-                <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border backdrop-blur-sm ${list.is_public ? 'bg-emerald-500/30 text-emerald-200 border-emerald-300/50' : 'bg-amber-500/30 text-amber-200 border-amber-300/50'}`}>
+                <div title={list.is_public ? 'Этот список виден всем' : 'Этот список виден только вам'} className="relative bg-primary text-primary-content px-2.5 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-sm">
                     {list.is_public ? <EyeIcon className="w-3.5 h-3.5" /> : <LockClosedIcon className="w-3.5 h-3.5" />}
                     <span>{list.is_public ? 'Публичный' : 'Приватный'}</span>
+                    {!list.is_public && (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-primary"></div>
+                    )}
                 </div>
             )}
         </div>

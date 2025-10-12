@@ -487,11 +487,33 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
           <div>
             {loading ? <LoadingState /> : (
               <>
-                {albums.length > 0 && (
-                     <div className="mb-12">
+                {albums.length === 0 && unassignedItems.length === 0 ? (
+                  <div className="text-center py-16 bg-base-200 rounded-2xl mt-8">
+                    <h2 className="text-xl font-bold">Ваша коллекция пуста</h2>
+                    <p className="text-base-content/70 mt-2">Создайте свой первый альбом или добавьте предмет.</p>
+                    <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+                      <button
+                        onClick={() => openAddItemModal(null)}
+                        className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-5 rounded-full text-sm flex items-center gap-2"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                        <span>Добавить предмет</span>
+                      </button>
+                      <button
+                        onClick={handleOpenCreateAlbumModal}
+                        className="bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm flex items-center gap-2"
+                      >
+                        <FolderPlusIcon className="w-4 h-4" />
+                        <span>Создать альбом</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-12">
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-2xl font-bold">Альбомы</h2>
-                             <button 
+                            <button 
                                 onClick={handleOpenCreateAlbumModal} 
                                 className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
                             >
@@ -499,76 +521,82 @@ const Collection: React.FC<CollectionProps> = ({ onItemClick, dataVersion, refre
                                 <span>Создать альбом</span>
                             </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {visibleAlbums.map(album => {
-                                const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
-                                return (
-                                    <AlbumCard 
-                                        key={album.id}
-                                        album={album}
-                                        items={itemsInAlbum}
-                                        itemCount={itemsInAlbum.length}
-                                        onClick={() => handleAlbumClick(album)}
-                                        onEdit={() => handleOpenEditAlbumModal(album)}
-                                        onDelete={() => handleDeleteAlbum(album)}
-                                        isOwnProfile={true}
-                                    />
-                                )
-                            })}
-                        </div>
-                        {visibleAlbumCount < albums.length && (
-                            <div className="mt-12 text-center">
-                                <LoadMoreButton onClick={handleLoadMoreAlbums} loading={false}>
-                                    Загрузить еще {Math.min(ALBUMS_TO_LOAD, albums.length - visibleAlbumCount)}
-                                </LoadMoreButton>
+                        {albums.length > 0 ? (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {visibleAlbums.map(album => {
+                                        const itemsInAlbum = userItems.filter(item => item.album_id === album.id);
+                                        return (
+                                            <AlbumCard 
+                                                key={album.id}
+                                                album={album}
+                                                items={itemsInAlbum}
+                                                itemCount={itemsInAlbum.length}
+                                                onClick={() => handleAlbumClick(album)}
+                                                onEdit={() => handleOpenEditAlbumModal(album)}
+                                                onDelete={() => handleDeleteAlbum(album)}
+                                                isOwnProfile={true}
+                                            />
+                                        )
+                                    })}
+                                </div>
+                                {visibleAlbumCount < albums.length && (
+                                    <div className="mt-12 text-center">
+                                        <LoadMoreButton onClick={handleLoadMoreAlbums} loading={false}>
+                                            Загрузить еще {Math.min(ALBUMS_TO_LOAD, albums.length - visibleAlbumCount)}
+                                        </LoadMoreButton>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="text-center py-16 bg-base-200 rounded-2xl">
+                                <h2 className="text-xl font-bold">У вас пока нет альбомов</h2>
+                                <p className="text-base-content/70 mt-2">Нажмите "Создать альбом", чтобы организовать свою коллекцию.</p>
                             </div>
                         )}
-                     </div>
-                )}
-               
-                <div className="mt-12">
-                    <FilterPanel filters={unassignedFilters} setFilters={handleSetUnassignedFilters} initialFilters={initialFilters} />
-
-                    {unassignedItems.length > 0 ? (
-                        <div className="mt-8">
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold">Без альбомов</h2>
-                                <button
-                                    onClick={() => openAddItemModal(null)}
-                                    className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-                                    aria-label="Добавить новый предмет"
-                                >
-                                    <PlusIcon className="w-4 h-4" />
-                                    <span>Добавить предмет</span>
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} isOwner={true} onParameterSearch={onParameterSearch}/>)}
-                            </div>
-                            {visibleUnassignedCount < filteredUnassignedItems.length && (
-                              <div className="mt-12 flex justify-center">
-                                <LoadMoreButton onClick={handleLoadMoreUnassigned} loading={false}>
-                                    Загрузить еще {Math.min(UNASSIGNED_TO_LOAD, filteredUnassignedItems.length - visibleUnassignedCount)}
-                                </LoadMoreButton>
+                    </div>
+                
+                    {unassignedItems.length > 0 && (
+                        <div className="mt-12">
+                          <div className="space-y-8">
+                              <div className="flex justify-between items-center">
+                                  <h2 className="text-2xl font-bold">Без альбомов</h2>
+                                  <button
+                                      onClick={() => openAddItemModal(null)}
+                                      className="bg-primary hover:scale-105 text-primary-content font-semibold py-2 px-4 rounded-full text-sm flex items-center gap-2 transition-transform duration-200 motion-safe:hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                                      aria-label="Добавить новый предмет"
+                                  >
+                                      <PlusIcon className="w-4 h-4" />
+                                      <span>Добавить предмет</span>
+                                  </button>
                               </div>
-                            )}
+
+                              <FilterPanel filters={unassignedFilters} setFilters={handleSetUnassignedFilters} initialFilters={initialFilters} />
+
+                              {filteredUnassignedItems.length > 0 ? (
+                                  <div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                          {visibleUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onCheckWantlist={setCheckingItem} isOwner={true} onParameterSearch={onParameterSearch}/>)}
+                                      </div>
+                                      {visibleUnassignedCount < filteredUnassignedItems.length && (
+                                        <div className="mt-12 flex justify-center">
+                                          <LoadMoreButton onClick={handleLoadMoreUnassigned} loading={false}>
+                                              Загрузить еще {Math.min(UNASSIGNED_TO_LOAD, filteredUnassignedItems.length - visibleUnassignedCount)}
+                                          </LoadMoreButton>
+                                        </div>
+                                      )}
+                                  </div>
+                              ) : (
+                                  <div className="text-center py-16 bg-base-200 rounded-2xl">
+                                      <h2 className="text-xl font-bold">Ничего не найдено</h2>
+                                      <p className="text-base-content/70 mt-2">Попробуйте изменить или сбросить фильтры.</p>
+                                  </div>
+                              )}
+                          </div>
                         </div>
-                    ) : ( albums.length === 0 && (
-                         <div className="text-center py-16 bg-base-200 rounded-2xl mt-8">
-                            <h2 className="text-xl font-bold">Ваша коллекция пуста</h2>
-                            <p className="text-base-content/70 mt-2">Нажмите "Добавить предмет", чтобы начать.</p>
-                            <div className="mt-6">
-                                <button
-                                    onClick={() => alert('Функция импорта из CSV скоро появится!')}
-                                    className="bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm flex items-center gap-2 mx-auto outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                >
-                                    Импорт из CSV
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                    )}
+                  </>
+                )}
               </>
             )}
           </div>

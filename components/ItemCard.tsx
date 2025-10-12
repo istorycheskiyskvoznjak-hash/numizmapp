@@ -136,8 +136,8 @@ const ItemCard: React.FC<ItemCardProps> = ({
         {/* Top Left Status Badges */}
         <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
           {isNew && <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-300/40 backdrop-blur-sm">NEW</span>}
-          {grade && <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-blue-500/30 text-blue-200 border border-blue-300/50 backdrop-blur-sm">{grade}</span>}
-          {rarity && <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-amber-500/30 text-amber-200 border border-amber-300/50 backdrop-blur-sm">{rarity}</span>}
+          {grade && <span className="px-3 py-1 text-xs font-bold rounded-lg bg-red-500 text-white shadow-lg ring-2 ring-white/50 animate-pulse">{grade}</span>}
+          {rarity && <span className="px-3 py-1 text-xs font-bold rounded-lg bg-purple-600 text-white shadow-lg ring-2 ring-white/50 animate-pulse">{rarity}</span>}
         </div>
         
         {/* On-Hover Action Rail */}
@@ -182,8 +182,8 @@ const ItemCard: React.FC<ItemCardProps> = ({
       </div>
       
       {/* Meta Strip */}
-      <div className="px-3 py-2 bg-base-300">
-         <div className="flex items-end justify-between gap-4 text-xs text-base-content/80">
+      <div className="px-3 py-2 bg-base-300 min-h-[56px] flex items-center">
+         <div className="w-full flex items-center justify-between gap-4 text-xs text-base-content/80">
             <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <ParameterBadge field="country" value={country} onParameterSearch={onParameterSearch} />

@@ -37,7 +37,7 @@ interface ProfileProps {
 }
 
 const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
-    <div className="bg-black/40 backdrop-blur-md rounded-xl p-4 text-center text-white border border-white/10 shadow-lg">
+    <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 text-center text-white border border-white/20 shadow-2xl shadow-black/30">
         <p className="text-3xl font-bold">{value}</p>
         <p className="text-sm opacity-80">{label}</p>
     </div>
@@ -46,7 +46,7 @@ const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
 const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; icon: React.ReactNode; className?: string }> = ({ onClick, children, icon, className }) => (
     <button
         onClick={onClick}
-        className={`w-full md:w-auto flex items-center justify-center gap-2 bg-black/40 backdrop-blur-md rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/10 shadow-lg hover:bg-black/60 transition-colors ${className}`}
+        className={`w-full md:w-auto flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/20 shadow-2xl shadow-black/30 hover:bg-black/40 transition-colors ${className}`}
     >
         {icon}
         <span>{children}</span>
@@ -152,42 +152,44 @@ const Profile: React.FC<ProfileProps> = ({
               .from('saved_collectibles')
               .select('collectible_id')
               .eq('user_id', session.user.id);
-            
+        
             if (savedError) {
               console.error("Error fetching saved relations:", savedError);
               if (isMounted.current) setSavedItems([]);
             } else if (savedRelations && savedRelations.length > 0) {
               const savedIds = savedRelations.map(r => r.collectible_id);
-              
+        
               const { data: savedItemsData, error: itemsError } = await supabase
                 .from('collectibles')
                 .select('*')
                 .in('id', savedIds);
-      
+        
               if (itemsError) {
                 console.error("Error fetching saved collectibles:", itemsError);
                 if (isMounted.current) setSavedItems([]);
-              } else if (savedItemsData && isMounted.current) {
-                  const ownerIds = [...new Set(savedItemsData.map(c => c.owner_id))];
-                  let combinedData: Collectible[] = savedItemsData;
-      
-                  if (ownerIds.length > 0) {
-                      const { data: profilesData, error: profilesError } = await supabase
-                          .from('profiles')
-                          .select('id, handle, avatar_url')
-                          .in('id', ownerIds);
-                      
-                      if (!profilesError) {
-                          const profilesMap = new Map(profilesData.map(p => [p.id, p]));
-                          combinedData = savedItemsData.map(item => ({
-                              ...item,
-                              profiles: profilesMap.get(item.owner_id) 
-                                  ? { handle: profilesMap.get(item.owner_id)!.handle, avatar_url: profilesMap.get(item.owner_id)!.avatar_url } 
-                                  : null
-                          }));
-                      }
+              } else if (savedItemsData) {
+                const ownerIds = [...new Set(savedItemsData.map(c => c.owner_id))];
+                let combinedData: Collectible[] = savedItemsData as Collectible[];
+        
+                if (ownerIds.length > 0) {
+                  const { data: profilesData, error: profilesError } = await supabase
+                    .from('profiles')
+                    .select('id, handle, avatar_url')
+                    .in('id', ownerIds);
+        
+                  if (!profilesError) {
+                    const profilesMap = new Map(profilesData.map(p => [p.id, p]));
+                    combinedData = savedItemsData.map(item => ({
+                      ...item,
+                      profiles: profilesMap.get(item.owner_id)
+                        ? { handle: profilesMap.get(item.owner_id)!.handle, avatar_url: profilesMap.get(item.owner_id)!.avatar_url }
+                        : null
+                    }));
                   }
+                }
+                if (isMounted.current) {
                   setSavedItems(combinedData);
+                }
               }
             } else {
               if (isMounted.current) setSavedItems([]);
@@ -265,7 +267,7 @@ const Profile: React.FC<ProfileProps> = ({
             <div className="relative rounded-2xl overflow-hidden shadow-lg mb-8">
                 {/* Background */}
                 {profile.header_image_url ? (
-                    <img src={profile.header_image_url} alt="Header" className="absolute inset-0 w-full h-full object-cover filter blur-sm scale-105" />
+                    <img src={profile.header_image_url} alt="Header" className="absolute inset-0 w-full h-full object-cover scale-105" />
                 ) : (
                     <div className="absolute inset-0 w-full h-full bg-base-300"></div>
                 )}
@@ -273,7 +275,7 @@ const Profile: React.FC<ProfileProps> = ({
 
                 {/* Back Button */}
                 {onBack && (
-                    <button onClick={onBack} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-black/30 backdrop-blur-md hover:bg-black/50 transition-colors" aria-label="Назад">
+                    <button onClick={onBack} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-black/20 backdrop-blur-sm hover:bg-black/40 transition-colors" aria-label="Назад">
                         <ArrowLeftIcon className="w-6 h-6 text-white" />
                     </button>
                 )}
@@ -284,7 +286,7 @@ const Profile: React.FC<ProfileProps> = ({
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         {/* User Info */}
                         <div className="flex items-center gap-4">
-                            <img src={profile.avatar_url} alt={profile.name || ''} className="w-24 h-24 rounded-full object-cover border-4 border-white/20 shadow-lg flex-shrink-0" />
+                            <img src={profile.avatar_url} alt={profile.name || ''} className="w-24 h-24 rounded-[14px] object-cover border-4 border-white/20 shadow-lg flex-shrink-0" />
                             <div>
                                 <div className="flex items-baseline gap-3">
                                     <h1 className="text-3xl font-bold" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>{profile.name}</h1>
@@ -320,10 +322,10 @@ const Profile: React.FC<ProfileProps> = ({
                     </div>
 
                     {/* Stats Section */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+                        <Stat value={wantlistItems.length} label="В вишлисте" />
                         <Stat value={collectibles.length} label="Предметы" />
                         <Stat value={following} label="Подписки" />
-                        <Stat value={wantlistItems.length} label="В вишлисте" />
                         <Stat value={followers} label="Подписчики" />
                     </div>
                 </div>

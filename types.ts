@@ -40,7 +40,7 @@ export interface Album {
   created_at: string;
   header_image_url: string | null;
   cover_image_url: string | null;
-  theme_color?: 'default' | 'primary' | 'secondary' | null;
+  theme_color?: 'default' | 'primary' | 'secondary' | 'glass' | null;
   cover_text?: string | null;
   is_public: boolean;
 }
