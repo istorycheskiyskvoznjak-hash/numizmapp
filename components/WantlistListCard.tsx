@@ -60,7 +60,7 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
                 <h3 className="font-bold text-xl">{list.name}</h3>
                 <p className="text-base-content/70 text-sm">{items.length} {getItemCountText(items.length)}</p>
             </div>
-             {(isOwnProfile || list.is_public) && (
+             {isOwnProfile && (
                 <>
                     {list.is_public ? (
                         <div title="Этот список виден всем" className="bg-primary text-primary-content px-2.5 py-1 rounded-full flex items-center gap-1.5 text-xs font-bold shadow-sm">
@@ -77,7 +77,7 @@ const WantlistListCard: React.FC<WantlistListCardProps> = ({ list, items, onClic
             )}
         </div>
         {list.description && <p className="text-sm mt-2 text-base-content/80 line-clamp-2">{list.description}</p>}
-        {isOwnProfile && totalCount > 0 && (
+        {totalCount > 0 && (
             <div className="mt-3">
                 <div className="flex justify-between items-center text-xs text-base-content/80 mb-1">
                     <span className="font-semibold">Прогресс</span>
