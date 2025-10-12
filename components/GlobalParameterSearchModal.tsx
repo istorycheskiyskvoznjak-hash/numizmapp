@@ -89,18 +89,22 @@ const GlobalParameterSearchModal: React.FC<GlobalParameterSearchModalProps> = ({
         
         let combinedData: (Collectible & { owner_profile?: Profile })[];
 
-        if (profilesError) {
-            console.warn('Could not fetch profiles for search results:', profilesError.message);
+        if (profilesError || !profilesData) {
+            console.warn('Could not fetch profiles for search results:', profilesError?.message);
             combinedData = collectiblesData as Collectible[];
         } else {
-            const profilesMap = new Map(profilesData.map(p => [p.id, p as Profile]));
-            combinedData = collectiblesData.map(c => ({
-                ...c,
-                profiles: profilesMap.get(c.owner_id) 
-                    ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } 
-                    : null,
-                owner_profile: profilesMap.get(c.owner_id)
-            }));
+            // FIX: Cast `profilesData` to ensure correct type inference for profilesMap.
+            const profilesMap = new Map((profilesData as Profile[]).map(p => [p.id, p]));
+            combinedData = collectiblesData.map(c => {
+                const profile = profilesMap.get(c.owner_id);
+                return {
+                    ...c,
+                    profiles: profile 
+                        ? { handle: profile.handle, avatar_url: profile.avatar_url } 
+                        : null,
+                    owner_profile: profile
+                };
+            });
         }
         setResults(combinedData);
       } else {
@@ -150,7 +154,7 @@ const GlobalParameterSearchModal: React.FC<GlobalParameterSearchModalProps> = ({
                             key={item.id}
                             item={item}
                             onItemClick={handleItemCardClick}
-                            onViewProfile={item.owner_profile ? () => handleViewProfileClick(item.owner_profile) : undefined}
+                            onViewProfile={item.owner_profile ? () => handleViewProfileClick(item.owner_profile!) : undefined}
                             onParameterSearch={(field, value, displayValue) => {
                                 onClose();
                                 onParameterSearch(field, value, displayValue);

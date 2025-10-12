@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Collectible, Comment, Album } from '../types';
 import { supabase } from '../supabaseClient';
@@ -10,7 +11,7 @@ import EditIcon from './icons/EditIcon';
 
 interface ItemDetailModalProps {
   item: Collectible;
-  session: Session;
+  session: Session | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   onStartConversation: (userId: string) => void;
@@ -76,7 +77,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
   const [albumUpdateStatus, setAlbumUpdateStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
 
-  const isOwner = item.owner_id === session.user.id;
+  const isOwner = session && item.owner_id === session.user.id;
   
   const isMounted = useRef(true);
   useEffect(() => {
@@ -99,7 +100,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
   }, [onClose]);
 
   useEffect(() => {
-    if (isOwner) {
+    if (isOwner && session) {
         const fetchAlbums = async () => {
             const { data, error } = await supabase
                 .from('albums')
@@ -114,7 +115,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
         };
         fetchAlbums();
     }
-  }, [isOwner, session.user.id]);
+  }, [isOwner, session]);
 
   const handleAlbumChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newAlbumId = e.target.value;
@@ -196,7 +197,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !session) return;
 
     setIsSubmitting(true);
     setCommentError(null);
@@ -365,7 +366,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                     <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
                   </button>
                 </div>
-              ) : (
+              ) : session ? (
                 <button 
                   onClick={() => onStartConversation(item.owner_id)}
                   className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -373,7 +374,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                   <MessagesIcon className="w-4 h-4" />
                   <span>Написать владельцу</span>
                 </button>
-              )}
+              ) : null}
               {error && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
             </div>
           </div>
@@ -398,7 +399,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                   )}
                   {displayedComments.map(comment => (
                     <div key={comment.id} className="flex items-start space-x-3">
-                      <img src={comment.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${comment.owner_id}`} alt={comment.profiles?.name} className="w-9 h-9 rounded-full object-cover" />
+                      <img src={comment.profiles?.avatar_url || `https://i.pravatar.cc/150?u=${comment.owner_id}`} alt={comment.profiles?.name || 'User'} className="w-9 h-9 rounded-full object-cover" />
                       <div className="flex-1 bg-base-100 p-3 rounded-lg">
                         <div className="flex items-baseline space-x-2 text-sm">
                           <span className="font-bold">{comment.profiles?.name || 'User'}</span>
@@ -414,28 +415,30 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
               {commentError && <p className="text-sm text-red-500">{commentError}</p>}
             </div>
 
-            <div className="mt-auto pt-4 border-t border-base-300 flex-shrink-0">
-              <form onSubmit={handleCommentSubmit} className="flex items-start space-x-3">
-                <img src={session.user.user_metadata.avatar_url || `https://i.pravatar.cc/150?u=${session.user.id}`} alt="Ваш аватар" className="w-9 h-9 rounded-full object-cover" />
-                <div className="flex-1">
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Написать комментарий..."
-                    className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-lg text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
-                    rows={2}
-                    disabled={isSubmitting}
-                    aria-label="Ваш комментарий"
-                  />
-                  <div className="flex justify-end mt-2">
-                    <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary motion-safe:hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                      <SendIcon className="w-4 h-4" />
-                      <span>{isSubmitting ? 'Отправка...' : 'Отправить'}</span>
-                    </button>
+            {session && (
+              <div className="mt-auto pt-4 border-t border-base-300 flex-shrink-0">
+                <form onSubmit={handleCommentSubmit} className="flex items-start space-x-3">
+                  <img src={session.user.user_metadata.avatar_url || `https://i.pravatar.cc/150?u=${session.user.id}`} alt="Ваш аватар" className="w-9 h-9 rounded-full object-cover" />
+                  <div className="flex-1">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Написать комментарий..."
+                      className="w-full px-3 py-2 bg-base-100 border border-base-300 rounded-lg text-sm shadow-sm placeholder-base-content/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition"
+                      rows={2}
+                      disabled={isSubmitting}
+                      aria-label="Ваш комментарий"
+                    />
+                    <div className="flex justify-end mt-2">
+                      <button type="submit" disabled={isSubmitting || !newComment.trim()} className="px-4 py-1.5 rounded-full text-sm font-bold text-black bg-primary motion-safe:hover:scale-105 transition-transform disabled:opacity-50 flex items-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <SendIcon className="w-4 h-4" />
+                        <span>{isSubmitting ? 'Отправка...' : 'Отправить'}</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </form>
-            </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>

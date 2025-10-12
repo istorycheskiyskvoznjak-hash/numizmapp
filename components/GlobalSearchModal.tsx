@@ -86,7 +86,8 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ session, onClose,
         const partnerIds = [...new Set(messagesRes.data.map(m => m.sender_id === session.user.id ? m.recipient_id : m.sender_id))];
         const { data: partners } = await supabase.from('profiles').select('*').in('id', partnerIds);
         if (partners) {
-            const partnersMap = new Map(partners.map(p => [p.id, p as Profile]));
+            // FIX: Cast `partners` to `Profile[]` to ensure correct type for `partnersMap`.
+            const partnersMap = new Map((partners as Profile[]).map(p => [p.id, p]));
             messagesRes.data.forEach(m => {
                 const partnerId = m.sender_id === session.user.id ? m.recipient_id : m.sender_id;
                 const partner = partnersMap.get(partnerId);

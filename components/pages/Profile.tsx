@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Collectible, Profile as ProfileData, Album, WantlistItem, WantlistList } from '../../types';
 import ItemCard from '../ItemCard';
@@ -23,7 +25,7 @@ import BookmarkIcon from '../icons/BookmarkIcon';
 
 
 interface ProfileProps {
-  session: Session;
+  session: Session | null;
   profileId?: string; // If not provided, defaults to session user
   onItemClick: (item: Collectible) => void;
   // Navigation handlers
@@ -46,7 +48,7 @@ const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
 const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; icon: React.ReactNode; className?: string }> = ({ onClick, children, icon, className }) => (
     <button
         onClick={onClick}
-        className={`w-full md:w-auto flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/20 shadow-2xl shadow-black/30 hover:bg-black/40 transition-colors ${className}`}
+        className={`w-full sm:w-auto flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/20 shadow-2xl shadow-black/30 hover:bg-black/40 transition-colors ${className}`}
     >
         {icon}
         <span>{children}</span>
@@ -55,6 +57,21 @@ const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; i
 
 
 type ClientWantlistItem = WantlistItem & { is_transitioning?: boolean };
+
+const FilterButton: React.FC<{
+    onClick: () => void;
+    isActive: boolean;
+    children: React.ReactNode;
+}> = ({ onClick, isActive, children }) => (
+    <button
+        onClick={onClick}
+        className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100 ${
+            isActive ? 'bg-primary text-primary-content' : 'bg-base-200 hover:bg-base-300'
+        }`}
+    >
+        {children}
+    </button>
+);
 
 
 const Profile: React.FC<ProfileProps> = ({ 
@@ -81,10 +98,11 @@ const Profile: React.FC<ProfileProps> = ({
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [view, setView] = useState<'collection' | 'wantlist' | 'saved'>('collection');
-    
+    const [unassignedFilter, setUnassignedFilter] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
+
     const isMounted = useRef(true);
 
-    const isOwnProfile = !profileId || profileId === session.user.id;
+    const isOwnProfile = !!session && (!profileId || profileId === session.user.id);
 
     useEffect(() => {
         isMounted.current = true;
@@ -93,7 +111,12 @@ const Profile: React.FC<ProfileProps> = ({
 
     const fetchProfileData = useCallback(async () => {
         setLoading(true);
-        const userId = profileId || session.user.id;
+        const userId = profileId || session?.user.id;
+
+        if (!userId) {
+            setLoading(false);
+            return;
+        }
         
         const { data: profileData, error: profileError } = await supabase
             .from('profiles')
@@ -121,7 +144,7 @@ const Profile: React.FC<ProfileProps> = ({
             .select('*', { count: 'exact', head: true })
             .eq('follower_id', userId);
         
-        if (!isOwnProfile) {
+        if (!isOwnProfile && session) {
             const { data: followingCheck, error: followingError } = await supabase
                 .from('subscriptions')
                 .select('*')
@@ -138,16 +161,16 @@ const Profile: React.FC<ProfileProps> = ({
 
         const [collectiblesRes, albumsRes, wantlistItemsRes, wantlistListsRes] = await Promise.all([
             supabase.from('collectibles').select('*').eq('owner_id', userId).order('created_at', { ascending: false }),
-            isOwnProfile
+            isOwnProfile || !session // Logged out users can see all public albums
                 ? supabase.from('albums').select('*').eq('owner_id', userId).order('name', { ascending: true })
                 : supabase.from('albums').select('*').eq('owner_id', userId).eq('is_public', true).order('name', { ascending: true }),
             supabase.from('wantlist').select('*').eq('user_id', userId),
-            isOwnProfile
+            isOwnProfile || !session // Logged out users can see all public wantlists
                 ? supabase.from('wantlist_lists').select('*').eq('user_id', userId).order('name', { ascending: true })
                 : supabase.from('wantlist_lists').select('*').eq('user_id', userId).eq('is_public', true).order('name', { ascending: true })
         ]);
 
-        if (isOwnProfile) {
+        if (isOwnProfile && session) {
             const { data: savedRelations, error: savedError } = await supabase
               .from('saved_collectibles')
               .select('collectible_id')
@@ -177,14 +200,18 @@ const Profile: React.FC<ProfileProps> = ({
                     .select('id, handle, avatar_url')
                     .in('id', ownerIds);
         
-                  if (!profilesError) {
-                    const profilesMap = new Map(profilesData.map(p => [p.id, p]));
-                    combinedData = savedItemsData.map(item => ({
-                      ...item,
-                      profiles: profilesMap.get(item.owner_id)
-                        ? { handle: profilesMap.get(item.owner_id)!.handle, avatar_url: profilesMap.get(item.owner_id)!.avatar_url }
-                        : null
-                    }));
+                  if (!profilesError && profilesData) {
+                    // FIX: Cast `profilesData` to a typed array to ensure correct type inference for profilesMap.
+                    const profilesMap = new Map((profilesData as { id: string, handle: string | null, avatar_url: string }[]).map(p => [p.id, p]));
+                    combinedData = savedItemsData.map(item => {
+                      const ownerProfile = profilesMap.get(item.owner_id);
+                      return {
+                        ...item,
+                        profiles: ownerProfile
+                          ? { handle: ownerProfile.handle, avatar_url: ownerProfile.avatar_url }
+                          : null
+                      };
+                    });
                   }
                 }
                 if (isMounted.current) {
@@ -202,7 +229,7 @@ const Profile: React.FC<ProfileProps> = ({
         
         if (collectiblesRes.error) console.error("Error fetching collectibles", collectiblesRes.error);
         else {
-            if (isOwnProfile) {
+            if (isOwnProfile || !session) { // Show all items if own profile, or if user is logged out
                 setCollectibles(collectiblesRes.data as Collectible[]);
             } else {
                 const publicAlbumIds = (albumsRes.data || []).map(a => a.id);
@@ -215,14 +242,14 @@ const Profile: React.FC<ProfileProps> = ({
         setWantlistLists(wantlistListsRes.data as WantlistList[] || []);
         
         setLoading(false);
-    }, [profileId, session.user.id, isOwnProfile]);
+    }, [profileId, session, isOwnProfile]);
 
     useEffect(() => {
         fetchProfileData();
     }, [fetchProfileData]);
 
     const handleFollow = async () => {
-        if (isOwnProfile || !profile) return;
+        if (isOwnProfile || !profile || !session) return;
         setIsFollowing(true);
         setFollowers(f => f + 1);
         const { error } = await supabase
@@ -236,7 +263,7 @@ const Profile: React.FC<ProfileProps> = ({
     };
 
     const handleUnfollow = async () => {
-        if (isOwnProfile || !profile) return;
+        if (isOwnProfile || !profile || !session) return;
         setIsFollowing(false);
         setFollowers(f => f - 1);
         const { error } = await supabase
@@ -260,6 +287,10 @@ const Profile: React.FC<ProfileProps> = ({
     }
 
     const unassignedItems = collectibles.filter(c => !c.album_id);
+    const filteredUnassignedItems = unassignedItems.filter(item => {
+        if (unassignedFilter === 'all') return true;
+        return item.category === unassignedFilter;
+    });
 
     return (
         <>
@@ -282,8 +313,8 @@ const Profile: React.FC<ProfileProps> = ({
 
                 {/* Content */}
                 <div className="relative p-6 md:p-8 space-y-6 text-white">
-                    {/* Top section: User Info + Actions */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    {/* Top section: User Info & Actions */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pt-10 md:pt-0">
                         {/* User Info */}
                         <div className="flex items-center gap-4">
                             <img src={profile.avatar_url} alt={profile.name || ''} className="w-24 h-24 rounded-[14px] object-cover border-4 border-white/20 shadow-lg flex-shrink-0" />
@@ -300,25 +331,26 @@ const Profile: React.FC<ProfileProps> = ({
                                 )}
                             </div>
                         </div>
-
                         {/* Action Buttons */}
-                        <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
-                            {isOwnProfile ? (
-                                <>
-                                    <ActionButton onClick={() => setIsEditModalOpen(true)} icon={<EditIcon className="w-4 h-4" />}>Редактировать</ActionButton>
-                                    <ActionButton onClick={() => setIsQrModalOpen(true)} icon={<QrCodeIcon className="w-4 h-4" />}>QR-код</ActionButton>
-                                </>
-                            ) : (
-                                <>
-                                    {isFollowing ? (
-                                        <ActionButton onClick={handleUnfollow} icon={<UserMinusIcon className="w-4 h-4" />}>Отписаться</ActionButton>
-                                    ) : (
-                                        <ActionButton onClick={handleFollow} icon={<UserPlusIcon className="w-4 h-4" />}>Подписаться</ActionButton>
-                                    )}
-                                    <ActionButton onClick={() => onStartConversation?.(profile.id)} icon={<MessagesIcon className="w-4 h-4" />}>Написать</ActionButton>
-                                </>
-                            )}
-                        </div>
+                        {session && (
+                            <div className="w-full md:w-auto flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
+                                {isOwnProfile ? (
+                                    <>
+                                        <ActionButton onClick={() => setIsEditModalOpen(true)} icon={<EditIcon className="w-4 h-4" />}>Редактировать</ActionButton>
+                                        <ActionButton onClick={() => setIsQrModalOpen(true)} icon={<QrCodeIcon className="w-4 h-4" />}>QR-код</ActionButton>
+                                    </>
+                                ) : (
+                                    <>
+                                        {isFollowing ? (
+                                            <ActionButton onClick={handleUnfollow} icon={<UserMinusIcon className="w-4 h-4" />}>Отписаться</ActionButton>
+                                        ) : (
+                                            <ActionButton onClick={handleFollow} icon={<UserPlusIcon className="w-4 h-4" />}>Подписаться</ActionButton>
+                                        )}
+                                        <ActionButton onClick={() => onStartConversation?.(profile.id)} icon={<MessagesIcon className="w-4 h-4" />}>Написать</ActionButton>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Stats Section */}
@@ -334,43 +366,54 @@ const Profile: React.FC<ProfileProps> = ({
             {/* Content Tabs */}
             <div className="mt-8 flex justify-center border-b border-base-300">
                 <button onClick={() => setView('collection')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'collection' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><RectangleGroupIcon className="w-5 h-5 inline-block mr-2" />Коллекция</button>
-                {isOwnProfile && <button onClick={() => setView('saved')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'saved' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><BookmarkIcon className="w-5 h-5 inline-block mr-2"/>Сохраненное</button>}
-                <button onClick={() => setView('wantlist')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'wantlist' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><HeartIcon className="w-5 h-5 inline-block mr-2"/>Вишлист</button>
+                {isOwnProfile && <button onClick={() => setView('saved')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'saved' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><BookmarkIcon className="w-5 h-5 inline-block mr-2"/>Сохраненные</button>}
+                <button onClick={() => setView('wantlist')} className={`px-6 py-3 font-semibold text-sm transition-colors ${view === 'wantlist' ? 'border-b-2 border-primary text-primary' : 'text-base-content/70 hover:text-base-content'}`}><HeartIcon className="w-5 h-5 inline-block mr-2"/>Вишлисты</button>
             </div>
             
             {view === 'collection' && (
                 <div className="mt-8">
-                    {isOwnProfile || albums.length > 0 ? (
+                    {albums.length > 0 && (
                         <div className="mb-8">
                             <h2 className="text-2xl font-bold mb-4">{isOwnProfile ? 'Мои альбомы' : 'Альбомы'}</h2>
-                            {albums.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {albums.map(album => {
-                                        const itemsInAlbum = collectibles.filter(c => c.album_id === album.id);
-                                        return (
-                                            <AlbumCard
-                                                key={album.id}
-                                                album={album}
-                                                items={itemsInAlbum}
-                                                itemCount={itemsInAlbum.length}
-                                                onClick={() => onViewAlbum(album.id)}
-                                                isOwnProfile={isOwnProfile}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                isOwnProfile && <p className="text-base-content/70">У вас пока нет альбомов.</p>
-                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {albums.map(album => {
+                                    const itemsInAlbum = collectibles.filter(c => c.album_id === album.id);
+                                    return (
+                                        <AlbumCard
+                                            key={album.id}
+                                            album={album}
+                                            items={itemsInAlbum}
+                                            itemCount={itemsInAlbum.length}
+                                            onClick={() => onViewAlbum(album.id)}
+                                            isOwnProfile={isOwnProfile}
+                                        />
+                                    );
+                                })}
+                            </div>
                         </div>
-                    ) : null}
+                    )}
                     
                     {isOwnProfile && unassignedItems.length > 0 && (
                         <div className="mt-12">
-                            <h2 className="text-2xl font-bold mb-4">Без альбомов</h2>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                {unassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onParameterSearch={onParameterSearch} />)}
+                             <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+                                <h2 className="text-2xl font-bold">Без альбомов</h2>
+                                <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
+                                    <FilterButton onClick={() => setUnassignedFilter('all')} isActive={unassignedFilter === 'all'}>Все</FilterButton>
+                                    <FilterButton onClick={() => setUnassignedFilter('coin')} isActive={unassignedFilter === 'coin'}>Монеты</FilterButton>
+                                    <FilterButton onClick={() => setUnassignedFilter('banknote')} isActive={unassignedFilter === 'banknote'}>Банкноты</FilterButton>
+                                    <FilterButton onClick={() => setUnassignedFilter('stamp')} isActive={unassignedFilter === 'stamp'}>Марки</FilterButton>
+                                </div>
                             </div>
+                            {filteredUnassignedItems.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                    {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onParameterSearch={onParameterSearch} />)}
+                                </div>
+                            ) : (
+                                <div className="text-center py-16 bg-base-200 rounded-2xl">
+                                    <h2 className="text-xl font-bold">Ничего не найдено</h2>
+                                    <p className="text-base-content/70 mt-2">Нет предметов, соответствующих выбранному фильтру.</p>
+                                </div>
+                            )}
                         </div>
                     )}
                     
@@ -429,7 +472,7 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
             )}
 
-            {isEditModalOpen && (
+            {isEditModalOpen && session && (
                 <EditProfileModal profile={profile} onClose={() => setIsEditModalOpen(false)} onSuccess={() => { setIsEditModalOpen(false); fetchProfileData(); }} />
             )}
             {isQrModalOpen && (

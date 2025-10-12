@@ -64,7 +64,8 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     const [savedRes, watchedRes, wantlistRes] = await Promise.all([
         supabase.from('saved_collectibles').select('collectible_id').eq('user_id', session.user.id),
         supabase.from('watched_collectibles').select('collectible_id').eq('user_id', session.user.id),
-        supabase.from('wantlist').select('name').eq('user_id', session.user.id).eq('is_found', false)
+        // FIX: Changed select('name') to select('*') to match the WantlistItem[] type.
+        supabase.from('wantlist').select('*').eq('user_id', session.user.id).eq('is_found', false)
     ]);
     if (isMounted.current) {
         if (savedRes.data) setSavedItemIds(new Set(savedRes.data.map(i => i.collectible_id)));
@@ -100,13 +101,18 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
 
         if (ownerIds.length > 0) {
             const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', ownerIds);
-            if (!profilesError) {
-                const profilesMap = new Map(profilesData.map((p: ProfileData) => [p.id, p]));
-                combinedData = collectiblesData.map(c => ({
-                    ...c,
-                    profiles: profilesMap.get(c.owner_id) ? { handle: profilesMap.get(c.owner_id)!.handle, avatar_url: profilesMap.get(c.owner_id)!.avatar_url } : null,
-                    owner_profile: profilesMap.get(c.owner_id)
-                }));
+            if (!profilesError && profilesData) {
+                // FIX: Cast `profilesData` to ensure correct type inference for `profilesMap`, resolving an error where `profile.handle` was on an `unknown` type.
+                const profilesMap = new Map((profilesData as ProfileData[]).map(p => [p.id, p]));
+                // FIX: Correctly map collectibles with their owner profiles to resolve type errors.
+                combinedData = collectiblesData.map(c => {
+                    const profile = profilesMap.get(c.owner_id);
+                    return {
+                        ...c,
+                        profiles: profile ? { handle: profile.handle, avatar_url: profile.avatar_url } : null,
+                        owner_profile: profile
+                    };
+                });
             }
         }
         setCollectibles(prev => isNewFilter ? combinedData : [...prev, ...combinedData]);
@@ -179,7 +185,8 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     return (itemName: string) => {
       const lowerItemName = itemName.toLowerCase();
       for (const wantName of wantlistNames) {
-        if (lowerItemName.includes(wantName) || wantName.includes(lowerItemName)) {
+        // FIX: Add a type guard to ensure wantName is a string, resolving the 'unknown' type error.
+        if (typeof wantName === 'string' && (lowerItemName.includes(wantName) || wantName.includes(lowerItemName))) {
           return true;
         }
       }

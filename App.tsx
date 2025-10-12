@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Page, Theme, Collectible, Message, Profile as ProfileData } from './types';
 import Layout from './components/Layout';
@@ -15,6 +16,7 @@ import SubscriptionFeed from './components/pages/SubscriptionFeed';
 import WantlistMatchesModal from './components/WantlistMatchesModal';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import GlobalParameterSearchModal from './components/GlobalParameterSearchModal';
+import PublicProfilePage from './components/pages/PublicProfilePage';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -22,6 +24,7 @@ const App: React.FC = () => {
   const [previousPage, setPreviousPage] = useState<Page>('Feed');
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [addItemModalState, setAddItemModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
   const [editingItem, setEditingItem] = useState<Collectible | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
@@ -87,9 +90,11 @@ const App: React.FC = () => {
 
 
   useEffect(() => {
+    setSessionLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (isMounted.current) {
         setSession(session);
+        setSessionLoading(false);
       }
     });
 
@@ -101,6 +106,7 @@ const App: React.FC = () => {
         if (!session) {
             setUnreadMessages({});
         }
+        setSessionLoading(false);
       }
     });
 
@@ -200,7 +206,8 @@ const App: React.FC = () => {
 
 
   const totalUnreadCount = useMemo(() => {
-    return Object.values(unreadMessages).reduce((sum, count) => sum + count, 0);
+    // FIX: Added explicit types to `sum` and `count` to resolve TypeScript error.
+    return Object.values(unreadMessages).reduce((sum: number, count: number) => sum + count, 0);
   }, [unreadMessages]);
   
   const markMessagesAsRead = useCallback(async (senderId: string) => {
@@ -445,11 +452,30 @@ const App: React.FC = () => {
     }
   };
 
+  if (sessionLoading) {
+    return <div className="min-h-screen bg-base-100 flex items-center justify-center">Загрузка...</div>;
+  }
+
+  // Handle public profile view for logged-out users
   if (!session) {
-    return (
+    const params = new URLSearchParams(window.location.search);
+    const publicProfileHandle = params.get('profileId');
+    if (publicProfileHandle) {
+      return (
         <div className={`min-h-screen bg-base-100 text-base-content font-sans ${theme}`}>
-            <Auth />
+            <PublicProfilePage 
+                key={publicProfileHandle} 
+                profileHandle={publicProfileHandle} 
+                theme={theme}
+                toggleTheme={toggleTheme}
+            />
         </div>
+      );
+    }
+    return (
+      <div className={`min-h-screen bg-base-100 text-base-content font-sans ${theme}`}>
+          <Auth />
+      </div>
     );
   }
 
