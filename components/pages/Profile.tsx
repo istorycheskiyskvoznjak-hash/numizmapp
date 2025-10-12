@@ -337,7 +337,13 @@ const Profile: React.FC<ProfileProps> = ({
                                 {isOwnProfile ? (
                                     <>
                                         <ActionButton onClick={() => setIsEditModalOpen(true)} icon={<EditIcon className="w-4 h-4" />}>Редактировать</ActionButton>
-                                        <ActionButton onClick={() => setIsQrModalOpen(true)} icon={<QrCodeIcon className="w-4 h-4" />}>QR-код</ActionButton>
+                                        <ActionButton 
+                                            onClick={() => setIsQrModalOpen(true)} 
+                                            icon={<QrCodeIcon className="w-4 h-4" />}
+                                            className="!bg-white !text-black hover:!bg-gray-200"
+                                        >
+                                            QR-код
+                                        </ActionButton>
                                     </>
                                 ) : (
                                     <>

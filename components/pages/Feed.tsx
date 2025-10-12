@@ -44,6 +44,11 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
   const [filterCategory, setFilterCategory] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  
+  // Subscription feed states
+  const [subscriptionItems, setSubscriptionItems] = useState<FeedCollectible[]>([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(true);
+  const [hasSubscriptions, setHasSubscriptions] = useState(false);
 
   // State for new action rail
   const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
@@ -64,7 +69,6 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     const [savedRes, watchedRes, wantlistRes] = await Promise.all([
         supabase.from('saved_collectibles').select('collectible_id').eq('user_id', session.user.id),
         supabase.from('watched_collectibles').select('collectible_id').eq('user_id', session.user.id),
-        // FIX: Changed select('name') to select('*') to match the WantlistItem[] type.
         supabase.from('wantlist').select('*').eq('user_id', session.user.id).eq('is_found', false)
     ]);
     if (isMounted.current) {
@@ -74,9 +78,63 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     }
   }, [session]);
 
+  const fetchSubscriptionItems = useCallback(async () => {
+    setLoadingSubscriptions(true);
+
+    const { data: subs, error: subsError } = await supabase
+        .from('subscriptions')
+        .select('following_id')
+        .eq('follower_id', session.user.id);
+
+    if (subsError || !subs || subs.length === 0) {
+        if (isMounted.current) {
+            setHasSubscriptions(false);
+            setSubscriptionItems([]);
+            setLoadingSubscriptions(false);
+        }
+        return;
+    }
+
+    if (isMounted.current) setHasSubscriptions(true);
+    const followingIds = subs.map(s => s.following_id);
+    const { data: subCollectibles, error: subError } = await supabase
+        .from('collectibles')
+        .select('*')
+        .in('owner_id', followingIds)
+        .order('created_at', { ascending: false })
+        .limit(10); 
+
+    if (isMounted.current) {
+        if (subError) {
+            console.error("Error fetching subscription feed items:", subError);
+            setSubscriptionItems([]);
+        } else if (subCollectibles) {
+            const ownerIds = [...new Set(subCollectibles.map(c => c.owner_id))];
+            let combinedData: FeedCollectible[] = subCollectibles as FeedCollectible[];
+            if (ownerIds.length > 0) {
+                const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', ownerIds);
+                if (!profilesError && profilesData) {
+                    const profilesMap = new Map((profilesData as ProfileData[]).map(p => [p.id, p]));
+                    combinedData = subCollectibles.map(c => {
+                        const profile = profilesMap.get(c.owner_id);
+                        return {
+                            ...c,
+                            profiles: profile ? { handle: profile.handle, avatar_url: profile.avatar_url } : null,
+                            owner_profile: profile
+                        };
+                    });
+                }
+            }
+            setSubscriptionItems(combinedData);
+        }
+        setLoadingSubscriptions(false);
+    }
+}, [session.user.id]);
+
   useEffect(() => {
     fetchUserInteractionData();
-  }, [fetchUserInteractionData, dataVersion]);
+    fetchSubscriptionItems();
+  }, [fetchUserInteractionData, fetchSubscriptionItems, dataVersion]);
 
   const fetchCollectibles = useCallback(async (isNewFilter: boolean) => {
     if (isNewFilter) setLoading(true);
@@ -102,9 +160,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
         if (ownerIds.length > 0) {
             const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', ownerIds);
             if (!profilesError && profilesData) {
-                // FIX: Cast `profilesData` to ensure correct type inference for `profilesMap`, resolving an error where `profile.handle` was on an `unknown` type.
                 const profilesMap = new Map((profilesData as ProfileData[]).map(p => [p.id, p]));
-                // FIX: Correctly map collectibles with their owner profiles to resolve type errors.
                 combinedData = collectiblesData.map(c => {
                     const profile = profilesMap.get(c.owner_id);
                     return {
@@ -185,7 +241,6 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     return (itemName: string) => {
       const lowerItemName = itemName.toLowerCase();
       for (const wantName of wantlistNames) {
-        // FIX: Add a type guard to ensure wantName is a string, resolving the 'unknown' type error.
         if (typeof wantName === 'string' && (lowerItemName.includes(wantName) || wantName.includes(lowerItemName))) {
           return true;
         }
@@ -196,6 +251,58 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
   
   return (
     <div className="space-y-12">
+      {hasSubscriptions && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Лента подписок</h2>
+              <button
+                  onClick={() => setCurrentPage('SubscriptionFeed')}
+                  className="text-sm font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+              >
+                  Смотреть все
+              </button>
+          </div>
+          {loadingSubscriptions ? (
+              <div className="grid grid-flow-col auto-cols-[calc(50%-6px)] sm:auto-cols-[calc(33.33%-8px)] lg:auto-cols-[calc(20%-9.6px)] gap-3 overflow-x-auto pb-4">
+                  {Array.from({ length: 5 }).map((_, i) => <ItemCardSkeleton key={i} />)}
+              </div>
+          ) : subscriptionItems.length > 0 ? (
+              <div className="relative">
+                  <div className="grid grid-flow-col grid-rows-2 auto-cols-[calc(50%-6px)] sm:auto-cols-[calc(33.33%-8px)] lg:auto-cols-[calc(20%-9.6px)] gap-3 overflow-x-auto pb-4 snap-x snap-mandatory">
+                      {subscriptionItems.map((item) => {
+                         const isOwner = item.owner_id === session.user.id;
+                         return (
+                             <div key={item.id} className="snap-start">
+                                 <ItemCard 
+                                     item={item} 
+                                     onItemClick={onItemClick} 
+                                     onCheckWantlist={onCheckWantlist} 
+                                     onViewProfile={item.owner_profile ? () => onViewProfile(item.owner_profile!) : undefined}
+                                     isOwner={isOwner}
+                                     onParameterSearch={onParameterSearch}
+                                     isSaved={!isOwner && savedItemIds.has(item.id)}
+                                     isWatched={!isOwner && watchedItemIds.has(item.id)}
+                                     isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
+                                     onSave={handleSave}
+                                     onWatch={handleWatch}
+                                     onOffer={handleOffer}
+                                     onRequestInfo={handleRequestInfo}
+                                  />
+                             </div>
+                         );
+                      })}
+                  </div>
+                  <div className="absolute top-0 bottom-0 left-0 w-8 bg-gradient-to-r from-base-100 to-transparent pointer-events-none"></div>
+                  <div className="absolute top-0 bottom-0 right-0 w-8 bg-gradient-to-l from-base-100 to-transparent pointer-events-none"></div>
+              </div>
+          ) : (
+              <div className="text-center py-8 bg-base-200 rounded-2xl">
+                  <p className="text-base-content/70">В ленте подписок пока тихо.</p>
+              </div>
+          )}
+        </div>
+      )}
+
       <div>
         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
           <h1 className="text-3xl font-bold">Недавно добавленные</h1>
