@@ -232,7 +232,7 @@ const Collection: React.FC<CollectionProps> = ({
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {itemsInAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} />)}
+                        {itemsInAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} stretch={true} />)}
                     </div>
                 )}
             </div>
@@ -323,7 +323,7 @@ const Collection: React.FC<CollectionProps> = ({
                 </div>
                 {filteredUnassignedItems.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} />)}
+                        {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} stretch={true} />)}
                     </div>
                 ) : (
                     <div className="text-center py-16 bg-base-200 rounded-2xl">

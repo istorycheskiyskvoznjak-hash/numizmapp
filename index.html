@@ -48,12 +48,21 @@
             },
             animation: {
                 sheen: 'sheen 1s forwards',
+                'pulse-color': 'pulse-color 2s infinite',
             },
             keyframes: {
                 sheen: {
                     '100%': {
                         transform: 'translateX(100%)',
                     },
+                },
+                'pulse-color': {
+                  '0%, 100%': {
+                    color: 'hsl(var(--bc) / 0.7)',
+                  },
+                  '50%': {
+                    color: 'hsl(var(--p))',
+                  },
                 },
             },
           },

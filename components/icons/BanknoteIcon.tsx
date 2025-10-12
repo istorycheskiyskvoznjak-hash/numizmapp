@@ -1,8 +1,11 @@
 import React from 'react';
 
 const BanknoteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h6m-3-3.75l-3 1.5m3-1.5l3 1.5m-3-1.5V15m3 2.25v-1.5m3-6a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v8.25a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9Z" />
+  <svg {...props} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3.75" y="6.75" width="16.5" height="10.5" rx="2.25" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round"></rect>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.75"></circle>
+    <path d="M5.5 9.25c1.1 0 1.75-.65 1.75-1.75M18.5 14.75c-1.1 0-1.75.65-1.75 1.75" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" opacity="0.6"></path>
+    <path d="M6.25 14.5h2.0M15.75 9.5h2.0" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" opacity="0.7"></path>
   </svg>
 );
 

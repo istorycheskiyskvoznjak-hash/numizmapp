@@ -4,6 +4,7 @@ import { Collectible } from '../types';
 import ImageIcon from './icons/ImageIcon';
 import { Session } from '@supabase/supabase-js';
 import SearchIcon from './icons/SearchIcon';
+import XCircleIcon from './icons/XCircleIcon';
 
 interface CollectionItemPickerProps {
     session: Session;
@@ -57,7 +58,17 @@ const CollectionItemPicker: React.FC<CollectionItemPickerProps> = ({ session, on
                 className="bg-base-300 rounded-2xl shadow-2xl border-2 border-base-content/10 p-4 max-h-80 flex flex-col" 
                 onClick={e => e.stopPropagation()}
             >
-                <h3 className="text-lg font-bold mb-2 text-center flex-shrink-0">Поделиться предметом из коллекции</h3>
+                <div className="relative flex items-center justify-center mb-2 flex-shrink-0">
+                    <h3 className="text-lg font-bold text-center">Поделиться предметом</h3>
+                    <button 
+                        type="button"
+                        onClick={onClose}
+                        className="absolute top-1/2 right-0 -translate-y-1/2 p-1 text-base-content/60 hover:text-base-content transition-colors rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label="Закрыть"
+                    >
+                        <XCircleIcon className="w-6 h-6"/>
+                    </button>
+                </div>
                  <div className="relative mb-4 flex-shrink-0">
                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                         <SearchIcon className="w-4 h-4 text-base-content/40" />

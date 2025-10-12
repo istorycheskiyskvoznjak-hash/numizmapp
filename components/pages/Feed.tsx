@@ -6,6 +6,7 @@ import { supabase } from '../../supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import ItemCardSkeleton from '../skeletons/ItemCardSkeleton';
 import LoadMoreButton from '../LoadMoreButton';
+import ArrowRightIcon from '../icons/ArrowRightIcon';
 
 interface FeedProps {
   onItemClick: (item: Collectible) => void;
@@ -225,9 +226,10 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
               <h2 className="text-2xl font-bold">Лента подписок</h2>
               <button
                   onClick={() => setCurrentPage('SubscriptionFeed')}
-                  className="text-sm font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
               >
                   <span>Вся лента</span>
+                  <ArrowRightIcon className="w-4 h-4" />
               </button>
           </div>
           {loadingSubscriptions ? (
@@ -251,6 +253,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                                      isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
                                      onSave={handleSave}
                                      onCheckWantlist={onCheckWantlist}
+                                     size="small"
                                   />
                              </div>
                          );
@@ -302,6 +305,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                                 isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
                                 onSave={handleSave}
                                 onCheckWantlist={onCheckWantlist}
+                                stretch={true}
                               />
                     })}
                 </div>

@@ -410,7 +410,7 @@ const Profile: React.FC<ProfileProps> = ({
                             </div>
                             {filteredUnassignedItems.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                    {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onParameterSearch={onParameterSearch} />)}
+                                    {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} onParameterSearch={onParameterSearch} stretch={true} />)}
                                 </div>
                             ) : (
                                 <div className="text-center py-16 bg-base-200 rounded-2xl">
@@ -441,6 +441,7 @@ const Profile: React.FC<ProfileProps> = ({
                                     onItemClick={onItemClick} 
                                     onParameterSearch={onParameterSearch} 
                                     isSaved={true}
+                                    stretch={true}
                                 />
                             ))}
                         </div>

@@ -47,7 +47,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
     const [year, setYear] = useState<string>(String(new Date().getFullYear()));
     const [description, setDescription] = useState('');
     const [grade, setGrade] = useState<'UNC' | 'XF' | 'VF' | 'F' | ''>('');
-    const [rarity, setRarity] = useState<'R1' | 'R2' | 'R3' | 'R4' | 'R5' | ''>('');
+    const [rarity, setRarity] = useState<'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8' | 'R9' | 'R10' | ''>('');
     const [material, setMaterial] = useState('');
     const [mint, setMint] = useState('');
     const [file, setFile] = useState<File | null>(null);
@@ -77,7 +77,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             setYear(String(itemToEdit.year));
             setDescription(itemToEdit.description);
             setGrade(itemToEdit.grade || '');
-            setRarity(itemToEdit.rarity || '');
+            setRarity(itemToEdit.rarity as any || '');
             setMaterial(itemToEdit.material || '');
             setMint(itemToEdit.mint || '');
             setSelectedAlbumId(itemToEdit.album_id || '');
@@ -322,6 +322,11 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                                         <option value="R3">R3</option>
                                         <option value="R4">R4</option>
                                         <option value="R5">R5</option>
+                                        <option value="R6">R6</option>
+                                        <option value="R7">R7</option>
+                                        <option value="R8">R8</option>
+                                        <option value="R9">R9</option>
+                                        <option value="R10">R10</option>
                                     </select>
                                 </div>
                             </div>

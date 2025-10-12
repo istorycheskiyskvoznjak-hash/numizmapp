@@ -159,6 +159,7 @@ const GlobalParameterSearchModal: React.FC<GlobalParameterSearchModalProps> = ({
                                 onClose();
                                 onParameterSearch(field, value, displayValue);
                             }}
+                            stretch={true}
                         />
                     ))}
                 </div>
