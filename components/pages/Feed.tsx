@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Collectible, Page, Profile as ProfileData, WantlistItem } from '../../types';
 import ItemCard from '../ItemCard';
@@ -52,7 +51,6 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
 
   // State for new action rail
   const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set());
-  const [watchedItemIds, setWatchedItemIds] = useState<Set<string>>(new Set());
   const [wantlistItems, setWantlistItems] = useState<WantlistItem[]>([]);
 
   const isMounted = useRef(true);
@@ -66,14 +64,12 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
 
   const fetchUserInteractionData = useCallback(async () => {
     if (!session) return;
-    const [savedRes, watchedRes, wantlistRes] = await Promise.all([
+    const [savedRes, wantlistRes] = await Promise.all([
         supabase.from('saved_collectibles').select('collectible_id').eq('user_id', session.user.id),
-        supabase.from('watched_collectibles').select('collectible_id').eq('user_id', session.user.id),
         supabase.from('wantlist').select('*').eq('user_id', session.user.id).eq('is_found', false)
     ]);
     if (isMounted.current) {
         if (savedRes.data) setSavedItemIds(new Set(savedRes.data.map(i => i.collectible_id)));
-        if (watchedRes.data) setWatchedItemIds(new Set(watchedRes.data.map(i => i.collectible_id)));
         if (wantlistRes.data) setWantlistItems(wantlistRes.data as WantlistItem[]);
     }
   }, [session]);
@@ -208,34 +204,6 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
     }
   };
 
-  const handleWatch = async (itemId: string, isCurrentlyWatched: boolean) => {
-      const originalState = new Set(watchedItemIds);
-      setWatchedItemIds(prev => {
-          const newSet = new Set(prev);
-          if (isCurrentlyWatched) newSet.delete(itemId);
-          else newSet.add(itemId);
-          return newSet;
-      });
-
-      if (isCurrentlyWatched) {
-          const { error } = await supabase.from('watched_collectibles').delete().match({ user_id: session.user.id, collectible_id: itemId });
-          if (error) { setWatchedItemIds(originalState); console.error(error); }
-      } else {
-          const { error } = await supabase.from('watched_collectibles').insert({ user_id: session.user.id, collectible_id: itemId });
-          if (error) { setWatchedItemIds(originalState); console.error(error); }
-      }
-  };
-  
-  const handleOffer = (item: Collectible) => {
-      // Future: Open offer modal. For now, navigate to messages.
-      setCurrentPage('Messages');
-  };
-  
-  const handleRequestInfo = (item: Collectible) => {
-      // Future: Open message with pre-filled text.
-       setCurrentPage('Messages');
-  };
-
   const checkWantlistMatch = useMemo(() => {
     const wantlistNames = new Set(wantlistItems.map(item => item.name.toLowerCase()));
     return (itemName: string) => {
@@ -259,7 +227,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                   onClick={() => setCurrentPage('SubscriptionFeed')}
                   className="text-sm font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
               >
-                  Смотреть все
+                  <span>Вся лента</span>
               </button>
           </div>
           {loadingSubscriptions ? (
@@ -276,17 +244,13 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                                  <ItemCard 
                                      item={item} 
                                      onItemClick={onItemClick} 
-                                     onCheckWantlist={onCheckWantlist} 
                                      onViewProfile={item.owner_profile ? () => onViewProfile(item.owner_profile!) : undefined}
                                      isOwner={isOwner}
                                      onParameterSearch={onParameterSearch}
                                      isSaved={!isOwner && savedItemIds.has(item.id)}
-                                     isWatched={!isOwner && watchedItemIds.has(item.id)}
                                      isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
                                      onSave={handleSave}
-                                     onWatch={handleWatch}
-                                     onOffer={handleOffer}
-                                     onRequestInfo={handleRequestInfo}
+                                     onCheckWantlist={onCheckWantlist}
                                   />
                              </div>
                          );
@@ -305,7 +269,7 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
 
       <div>
         <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
-          <h1 className="text-3xl font-bold">Недавно добавленные</h1>
+          <h1 className="text-3xl font-bold">Добавления вне ленты</h1>
           <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
               <FilterButton onClick={() => setFilterCategory('all')} isActive={filterCategory === 'all'}>Все</FilterButton>
               <FilterButton onClick={() => setFilterCategory('coin')} isActive={filterCategory === 'coin'}>Монеты</FilterButton>
@@ -330,18 +294,14 @@ const Feed: React.FC<FeedProps> = ({ onItemClick, onCheckWantlist, dataVersion, 
                                 key={item.id} 
                                 item={item} 
                                 onItemClick={onItemClick} 
-                                onCheckWantlist={onCheckWantlist} 
                                 isNew={isNew}
                                 onViewProfile={item.owner_profile ? () => onViewProfile(item.owner_profile!) : undefined}
                                 isOwner={isOwner}
                                 onParameterSearch={onParameterSearch}
                                 isSaved={!isOwner && savedItemIds.has(item.id)}
-                                isWatched={!isOwner && watchedItemIds.has(item.id)}
                                 isWantlistMatch={!isOwner && checkWantlistMatch(item.name)}
                                 onSave={handleSave}
-                                onWatch={handleWatch}
-                                onOffer={handleOffer}
-                                onRequestInfo={handleRequestInfo}
+                                onCheckWantlist={onCheckWantlist}
                               />
                     })}
                 </div>

@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { Collectible, Album } from '../../types';
+import { Collectible, Album, Profile as ProfileData } from '../../types';
 import ItemCard from '../ItemCard';
 import AlbumCard from '../AlbumCard';
 import PlusIcon from '../icons/PlusIcon';
@@ -10,8 +9,9 @@ import CreateAlbumModal from '../CreateAlbumModal';
 import ItemCardSkeleton from '../skeletons/ItemCardSkeleton';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
 import EditIcon from '../icons/EditIcon';
-import TrashIcon from '../icons/TrashIcon';
+import QrCodeIcon from '../icons/QrCodeIcon';
 import { Session } from '@supabase/supabase-js';
+import QRCodeModal from '../QRCodeModal';
 
 interface CollectionProps {
   onItemClick: (item: Collectible) => void;
@@ -22,6 +22,7 @@ interface CollectionProps {
   initialAlbumId: string | null;
   clearInitialAlbumId: () => void;
   onParameterSearch: (field: string, value: any, displayValue?: string) => void;
+  onCheckWantlist: (item: Collectible) => void;
 }
 
 const FilterButton: React.FC<{
@@ -48,15 +49,18 @@ const Collection: React.FC<CollectionProps> = ({
   initialAlbumId,
   clearInitialAlbumId,
   onParameterSearch,
+  onCheckWantlist,
 }) => {
   const [collectibles, setCollectibles] = useState<Collectible[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
   const [editingAlbum, setEditingAlbum] = useState<Album | null>(null);
   const [unassignedFilter, setUnassignedFilter] = useState<'all' | 'coin' | 'stamp' | 'banknote'>('all');
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const isMounted = useRef(true);
   
@@ -74,9 +78,10 @@ const Collection: React.FC<CollectionProps> = ({
     }
     if(isMounted.current) setSession(currentSession);
 
-    const [collectiblesRes, albumsRes] = await Promise.all([
+    const [collectiblesRes, albumsRes, profileRes] = await Promise.all([
       supabase.from('collectibles').select('*').eq('owner_id', currentSession.user.id).order('created_at', { ascending: false }),
-      supabase.from('albums').select('*').eq('owner_id', currentSession.user.id).order('name', { ascending: true })
+      supabase.from('albums').select('*').eq('owner_id', currentSession.user.id).order('name', { ascending: true }),
+      supabase.from('profiles').select('*').eq('id', currentSession.user.id).single(),
     ]);
     
     if (!isMounted.current) return;
@@ -93,6 +98,12 @@ const Collection: React.FC<CollectionProps> = ({
             if (album) setSelectedAlbum(album);
             else clearInitialAlbumId(); // Album not found, clear the ID
         }
+    }
+
+    if (profileRes.error) {
+        console.error("Error fetching profile for collection page:", profileRes.error);
+    } else {
+        setProfile(profileRes.data as ProfileData);
     }
 
     setLoading(false);
@@ -202,8 +213,8 @@ const Collection: React.FC<CollectionProps> = ({
                             <EditIcon className="w-4 h-4" />
                             <span>Редактировать</span>
                         </button>
-                        <button onClick={() => handleDeleteAlbum(selectedAlbum)} className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-4 rounded-full text-sm transition-colors">
-                            <TrashIcon className="w-4 h-4" />
+                        <button onClick={() => setIsQrModalOpen(true)} className="flex items-center justify-center w-10 h-10 bg-base-200 hover:bg-base-300 rounded-full text-sm transition-colors" title="Поделиться альбомом (QR-код)">
+                            <QrCodeIcon className="w-5 h-5" />
                         </button>
                         <button 
                             onClick={() => openAddItemModal(selectedAlbum.id)}
@@ -221,7 +232,7 @@ const Collection: React.FC<CollectionProps> = ({
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {itemsInAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} />)}
+                        {itemsInAlbum.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} />)}
                     </div>
                 )}
             </div>
@@ -230,6 +241,16 @@ const Collection: React.FC<CollectionProps> = ({
                     albumToEdit={editingAlbum}
                     onClose={() => setIsAlbumModalOpen(false)}
                     onSuccess={handleAlbumModalSuccess}
+                />
+            )}
+             {isQrModalOpen && selectedAlbum && profile && (
+                <QRCodeModal 
+                    title={selectedAlbum.name}
+                    subtitle={`Альбом пользователя @${profile.handle || '...'}`}
+                    imageUrl={selectedAlbum.cover_image_url}
+                    url={`${window.location.origin}?albumId=${selectedAlbum.id}`}
+                    onClose={() => setIsQrModalOpen(false)}
+                    typeLabel="альбомом"
                 />
             )}
         </>
@@ -292,7 +313,7 @@ const Collection: React.FC<CollectionProps> = ({
         {unassignedItems.length > 0 && (
             <div>
                 <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
-                    <h2 className="text-2xl font-bold">Без альбомов</h2>
+                    <h2 className="text-2xl font-bold">Не имеют альбомов</h2>
                      <div className="flex items-center space-x-2 bg-base-200 p-1 rounded-full flex-shrink-0">
                         <FilterButton onClick={() => setUnassignedFilter('all')} isActive={unassignedFilter === 'all'}>Все</FilterButton>
                         <FilterButton onClick={() => setUnassignedFilter('coin')} isActive={unassignedFilter === 'coin'}>Монеты</FilterButton>
@@ -302,7 +323,7 @@ const Collection: React.FC<CollectionProps> = ({
                 </div>
                 {filteredUnassignedItems.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} />)}
+                        {filteredUnassignedItems.map(item => <ItemCard key={item.id} item={item} onItemClick={onItemClick} isOwner={true} onParameterSearch={onParameterSearch} onCheckWantlist={onCheckWantlist} />)}
                     </div>
                 ) : (
                     <div className="text-center py-16 bg-base-200 rounded-2xl">

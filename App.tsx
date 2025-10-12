@@ -386,7 +386,7 @@ const App: React.FC = () => {
             onParameterSearch={handleParameterSearch}
           />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)} onParameterSearch={handleParameterSearch}/>;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)} onParameterSearch={handleParameterSearch} onCheckWantlist={setCheckingItem} />;
       case 'Wantlist':
         return <Wantlist 
             session={session}

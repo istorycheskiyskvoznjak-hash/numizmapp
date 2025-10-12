@@ -1,21 +1,22 @@
-
-
 import React, { useEffect, useState } from 'react';
-import { Profile } from '../types';
 import XCircleIcon from './icons/XCircleIcon';
 import CopyIcon from './icons/CopyIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+import UserCircleIcon from './icons/UserCircleIcon';
 
 interface QRCodeModalProps {
-  profile: Profile;
+  title: string;
+  subtitle: string;
+  url: string;
+  imageUrl?: string | null;
   onClose: () => void;
+  typeLabel: 'профилем' | 'альбомом';
 }
 
-const QRCodeModal: React.FC<QRCodeModalProps> = ({ profile, onClose }) => {
+const QRCodeModal: React.FC<QRCodeModalProps> = ({ title, subtitle, url, imageUrl, onClose, typeLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
-  const profileUrl = `${window.location.origin}?profileId=${profile.handle}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
-    profileUrl
+    url
   )}&size=256x256&bgcolor=1A1F29&color=DCE0E8&qzone=1`;
 
   useEffect(() => {
@@ -31,7 +32,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ profile, onClose }) => {
   }, [onClose]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(profileUrl).then(() => {
+    navigator.clipboard.writeText(url).then(() => {
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
     });
@@ -46,28 +47,36 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({ profile, onClose }) => {
         <button onClick={onClose} className="absolute top-4 right-4 text-base-content/50 hover:text-base-content outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-full">
             <XCircleIcon className="w-7 h-7" />
         </button>
-        <img 
-            src={profile.avatar_url} 
-            alt={profile.name || ''}
-            className="w-20 h-20 rounded-full object-cover border-4 border-base-300" 
-        />
-        <h2 className="text-2xl font-bold mt-4">{profile.name}</h2>
-        <p className="text-base-content/70">@{profile.handle}</p>
+        {imageUrl ? (
+            <img 
+                src={imageUrl} 
+                alt={title}
+                className="w-20 h-20 rounded-lg object-cover border-4 border-base-300" 
+            />
+        ) : (
+            <div className="w-20 h-20 rounded-lg border-4 border-base-300 bg-base-300 flex items-center justify-center">
+                <UserCircleIcon className="w-12 h-12 text-base-content/50" />
+            </div>
+        )}
+        <h2 className="text-2xl font-bold mt-4">{title}</h2>
+        <p className="text-base-content/70">{subtitle}</p>
 
         <div className="bg-base-100 p-4 rounded-lg mt-6">
-            <img src={qrCodeUrl} alt="QR Code for profile" width="256" height="256" />
+            <img src={qrCodeUrl} alt={`QR Code for ${typeLabel}`} width="256" height="256" />
         </div>
-        <p className="text-xs text-base-content/60 mt-4">
-            Отсканируйте код, чтобы поделиться этим профилем
+        
+        <p className="text-sm text-base-content/60 mt-4">
+            Отсканируйте код, чтобы поделиться этим {typeLabel}
         </p>
+        
         <div className="mt-2 w-full relative cursor-pointer" onClick={handleCopy}>
             <input
                 type="text"
                 readOnly
-                value={profileUrl}
+                value={url}
                 className="w-full bg-base-300 text-center text-xs p-2 pr-10 rounded-md border border-base-100 focus:outline-none cursor-pointer"
                 onFocus={(e) => e.target.select()}
-                aria-label="Ссылка на профиль"
+                aria-label={`Ссылка на ${typeLabel}`}
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-base-content/60 pointer-events-none">
                 {isCopied ? <CheckCircleIcon className="w-5 h-5 text-emerald-500" /> : <CopyIcon className="w-5 h-5" />}

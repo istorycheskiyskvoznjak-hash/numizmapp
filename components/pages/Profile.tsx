@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Collectible, Profile as ProfileData, Album, WantlistItem, WantlistList } from '../../types';
 import ItemCard from '../ItemCard';
@@ -39,7 +37,7 @@ interface ProfileProps {
 }
 
 const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
-    <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 text-center text-white border border-white/20 shadow-2xl shadow-black/30">
+    <div className="bg-black/20 backdrop-blur rounded-xl p-4 text-center text-white border border-white/20 shadow-2xl shadow-black/30">
         <p className="text-3xl font-bold">{value}</p>
         <p className="text-sm opacity-80">{label}</p>
     </div>
@@ -48,7 +46,7 @@ const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
 const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; icon: React.ReactNode; className?: string }> = ({ onClick, children, icon, className }) => (
     <button
         onClick={onClick}
-        className={`w-full sm:w-auto flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/20 shadow-2xl shadow-black/30 hover:bg-black/40 transition-colors ${className}`}
+        className={`w-full sm:w-auto flex items-center justify-center gap-2 bg-black/20 backdrop-blur rounded-full py-2 px-5 text-sm font-semibold text-white border border-white/20 shadow-2xl shadow-black/30 hover:bg-black/40 transition-colors ${className}`}
     >
         {icon}
         <span>{children}</span>
@@ -340,7 +338,7 @@ const Profile: React.FC<ProfileProps> = ({
                                         <ActionButton 
                                             onClick={() => setIsQrModalOpen(true)} 
                                             icon={<QrCodeIcon className="w-4 h-4" />}
-                                            className="!bg-white !text-black hover:!bg-gray-200"
+                                            className="!bg-white/40 !text-black hover:!bg-white/60"
                                         >
                                             QR-код
                                         </ActionButton>
@@ -482,7 +480,14 @@ const Profile: React.FC<ProfileProps> = ({
                 <EditProfileModal profile={profile} onClose={() => setIsEditModalOpen(false)} onSuccess={() => { setIsEditModalOpen(false); fetchProfileData(); }} />
             )}
             {isQrModalOpen && (
-                <QRCodeModal profile={profile} onClose={() => setIsQrModalOpen(false)} />
+                <QRCodeModal 
+                    title={profile.name || ''}
+                    subtitle={`@${profile.handle}`}
+                    imageUrl={profile.avatar_url}
+                    url={`${window.location.origin}?profileId=${profile.handle}`}
+                    onClose={() => setIsQrModalOpen(false)} 
+                    typeLabel="профилем"
+                />
             )}
         </>
     );
