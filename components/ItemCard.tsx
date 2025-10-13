@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Collectible } from '../types';
 import ImageIcon from './icons/ImageIcon';
@@ -193,9 +192,19 @@ const ItemCard: React.FC<ItemCardProps> = ({
         
         {/* Top Badges & Actions */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-start gap-1.5">
-             <div className="inline-grid gap-1.5 justify-items-stretch">
+             <div className="flex flex-col items-start gap-1.5">
+                {!isOwner && profiles?.handle && (
+                    <button
+                        onClick={handleProfileClick}
+                        className="flex items-center gap-1.5 min-w-0 group/profile bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20"
+                        aria-label={`Перейти к профилю ${profiles.handle}`}
+                    >
+                        <img src={profiles.avatar_url} alt={`Аватар ${profiles.handle}`} className="w-5 h-5 rounded-full object-cover border-2 border-white/30" />
+                        <span className="text-sm font-medium text-white/90 truncate drop-shadow-sm group-hover/profile:underline">@{profiles.handle}</span>
+                    </button>
+                )}
                 {isNew && (
-                    <div title="Новый предмет">
+                    <div title="Новый предмет" className="ml-1">
                         <div className="relative w-4 h-4">
                             <div className="absolute inset-0 bg-green-400 rounded-full animate-ping"></div>
                             <div className="relative w-full h-full rounded-full bg-green-500 border-2 border-white/50 shadow-lg"></div>
@@ -203,18 +212,22 @@ const ItemCard: React.FC<ItemCardProps> = ({
                     </div>
                 )}
             </div>
-             <div className="flex flex-col items-end gap-1.5">
+             <div className="flex items-center gap-1.5">
                 {!isOwner && onSave && (
                      <button
                         onClick={handleActionClick(() => onSave(item.id, !!isSaved))}
                         title={isSaved ? "Удалить из избранного" : "Сохранить в избранное"}
-                        className={`flex items-center justify-center w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-black/60 hover:text-white transition-all ${isSaved ? '!bg-primary/80 !text-primary-content border-transparent' : ''}`}
+                        className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
+                          ${isSaved 
+                            ? 'bg-primary text-primary-content shadow' 
+                            : 'bg-black/40 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-black/60 hover:text-white opacity-0 group-hover:opacity-100'
+                          }`}
                     >
                         {isSaved ? <BookmarkSolidIcon className="w-5 h-5" /> : <BookmarkIcon className="w-5 h-5" />}
                     </button>
                 )}
                  {!isOwner && isWantlistMatch && (
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-primary/50 text-primary animate-pulse-color" title="Совпадение с вашим вишлистом!">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content shadow" title="Совпадение с вашим вишлистом!">
                         <WantlistMatchIcon className="w-5 h-5" />
                     </div>
                 )}
@@ -224,16 +237,6 @@ const ItemCard: React.FC<ItemCardProps> = ({
         {/* Overlay Content */}
         <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
           <h3 className="font-semibold text-lg truncate drop-shadow-md">{name}</h3>
-           {!isOwner && profiles?.handle && (
-                <button
-                    onClick={handleProfileClick}
-                    className="flex items-center gap-1.5 min-w-0 group/profile mt-1"
-                    aria-label={`Перейти к профилю ${profiles.handle}`}
-                >
-                    <img src={profiles.avatar_url} alt={`Аватар ${profiles.handle}`} className="w-5 h-5 rounded-full object-cover border-2 border-white/30" />
-                    <span className="text-sm font-medium text-white/90 truncate drop-shadow-sm group-hover/profile:underline">@{profiles.handle}</span>
-                </button>
-            )}
         </div>
       </div>
       

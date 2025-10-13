@@ -17,6 +17,7 @@ import WantlistMatchesModal from './components/WantlistMatchesModal';
 import GlobalSearchModal from './components/GlobalSearchModal';
 import GlobalParameterSearchModal from './components/GlobalParameterSearchModal';
 import PublicProfilePage from './components/pages/PublicProfilePage';
+import SpinnerIcon from './components/icons/SpinnerIcon';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -36,6 +37,7 @@ const App: React.FC = () => {
   const [checkingItem, setCheckingItem] = useState<Collectible | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [parameterSearchQuery, setParameterSearchQuery] = useState<{ field: string; value: any; displayValue?: string } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const isMounted = useRef(true);
 
   // New navigation handler to centralize page changes and state cleanup
@@ -91,22 +93,59 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setSessionLoading(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted.current) {
-        setSession(session);
-        setSessionLoading(false);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      try {
+        if (isMounted.current) {
+          setSession(session);
+          if (session) {
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (error) throw error;
+
+            setIsAdmin(profile?.is_admin || false);
+          }
+        }
+      } catch (error) {
+          console.error("Error getting user profile on initial load:", error);
+      } finally {
+        if (isMounted.current) {
+          setSessionLoading(false);
+        }
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted.current) {
-        setSession(session);
-        if (!session) {
-            setUnreadMessages({});
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      try {
+          if (isMounted.current) {
+            setSession(session);
+            if (!session) {
+              setUnreadMessages({});
+              setIsAdmin(false);
+            } else {
+              const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('is_admin')
+                .eq('id', session.user.id)
+                .single();
+
+              if (error) throw error;
+
+              setIsAdmin(profile?.is_admin || false);
+            }
+          }
+      } catch (error) {
+          console.error("Error getting user profile on auth change:", error);
+      } finally {
+        // Also ensure loading is false after an auth change, which might be the first "load" for the user.
+        if (isMounted.current) {
+            setSessionLoading(false);
         }
-        setSessionLoading(false);
       }
     });
 
@@ -453,7 +492,12 @@ const App: React.FC = () => {
   };
 
   if (sessionLoading) {
-    return <div className="min-h-screen bg-base-100 flex items-center justify-center">Загрузка...</div>;
+    return (
+      <div className="min-h-screen bg-base-100 flex flex-col items-center justify-center gap-4">
+        <SpinnerIcon className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-lg text-base-content/80">Загружаемся...</p>
+      </div>
+    );
   }
 
   // Handle public profile view for logged-out users
@@ -501,6 +545,7 @@ const App: React.FC = () => {
           onItemUpdate={refreshData}
           onEditItem={handleEditItemRequest}
           onParameterSearch={handleParameterSearch}
+          isAdmin={isAdmin}
         />
       )}
       {(addItemModalState.isOpen || editingItem) && (

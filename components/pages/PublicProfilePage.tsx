@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
 import { Profile as ProfileData, Theme, Collectible } from '../../types';
@@ -114,6 +115,8 @@ const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profileHandle, th
             onDeleteSuccess={() => {}}
             onItemUpdate={() => {}}
             onEditItem={() => {}}
+            // FIX: Add the missing 'isAdmin' prop. Public users are not admins.
+            isAdmin={false}
         />
       )}
     </div>

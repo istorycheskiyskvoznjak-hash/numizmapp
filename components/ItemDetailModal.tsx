@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Collectible, Comment, Album } from '../types';
 import { supabase } from '../supabaseClient';
@@ -20,6 +19,7 @@ interface ItemDetailModalProps {
   onItemUpdate: () => void;
   onEditItem: (item: Collectible) => void;
   onParameterSearch?: (field: string, value: any, displayValue?: string) => void;
+  isAdmin: boolean;
 }
 
 const CATEGORY_TRANSLATIONS: Record<string, string> = {
@@ -64,7 +64,7 @@ const ParameterButton: React.FC<{
 };
 
 
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate, onEditItem, onParameterSearch }) => {
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClose, onDeleteSuccess, onStartConversation, onItemUpdate, onEditItem, onParameterSearch, isAdmin }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -224,7 +224,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
   };
 
   const handleDelete = async () => {
-    if (!isOwner) return;
+    if (!isOwner && !isAdmin) return;
 
     const confirmed = window.confirm(`Вы уверены, что хотите удалить "${item.name}"? Это действие необратимо.`);
     if (!confirmed) return;
@@ -352,33 +352,36 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                 </div>
             )}
             <div className="mt-8">
-              {isOwner ? (
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => onEditItem(item)}
-                    className="flex items-center gap-2 bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <EditIcon className="w-4 h-4" />
-                    <span>Редактировать</span>
-                  </button>
+              <div className="flex items-center flex-wrap gap-4">
+                {(isOwner || isAdmin) && (
+                  <>
+                    <button
+                      onClick={() => onEditItem(item)}
+                      className="flex items-center gap-2 bg-base-300 hover:bg-secondary hover:text-secondary-content font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <EditIcon className="w-4 h-4" />
+                      <span>Редактировать</span>
+                    </button>
+                    <button 
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                      <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
+                    </button>
+                  </>
+                )}
+                {!isOwner && session && (
                   <button 
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="flex items-center gap-2 bg-red-500/20 text-red-500 hover:bg-red-500/40 font-semibold py-2 px-5 rounded-full text-sm transition-colors disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    onClick={() => onStartConversation(item.owner_id)}
+                    className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    <TrashIcon className="w-4 h-4" />
-                    <span>{isDeleting ? 'Удаление...' : 'Удалить'}</span>
+                    <MessagesIcon className="w-4 h-4" />
+                    <span>Написать владельцу</span>
                   </button>
-                </div>
-              ) : session ? (
-                <button 
-                  onClick={() => onStartConversation(item.owner_id)}
-                  className="flex items-center gap-2 bg-primary/80 text-black hover:bg-primary font-semibold py-2 px-5 rounded-full text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <MessagesIcon className="w-4 h-4" />
-                  <span>Написать владельцу</span>
-                </button>
-              ) : null}
+                )}
+              </div>
               {error && <p className="text-sm text-red-500 mt-4 text-center">{error}</p>}
             </div>
           </div>
