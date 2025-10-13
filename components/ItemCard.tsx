@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Collectible } from '../types';
 import ImageIcon from './icons/ImageIcon';
@@ -14,7 +15,7 @@ import CoinIcon from './icons/CoinIcon';
 import StampIcon from './icons/StampIcon';
 import BanknoteIcon from './icons/BanknoteIcon';
 import WantlistMatchIcon from './icons/WantlistMatchIcon';
-
+import CountryDisplay from './CountryDisplay';
 
 interface ItemCardProps {
   item: Collectible;
@@ -98,7 +99,7 @@ const ParameterRow: React.FC<{
                 <span className="text-sm font-semibold text-base-content/70">{label}:</span>
             </div>
             <div className="flex items-center justify-end gap-1.5 min-w-0">
-                {valueIcon && <div className="flex-shrink-0 w-5 h-5 text-base-content/80">{valueIcon}</div>}
+                {valueIcon}
                 <span className="text-sm font-medium text-base-content truncate text-right">{displayValue || value}</span>
             </div>
         </>
@@ -158,8 +159,8 @@ const ItemCard: React.FC<ItemCardProps> = ({
     stretch = false,
     size,
 }) => {
-  const { name, country, year, category, image_url, profiles, grade, rarity, material, mint } = item;
-
+  const { name, country, year, category, image_url, profiles, grade, rarity, material, mint, country_flag_override_url } = item;
+  
   const handleActionClick = (handler?: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => {
       e.stopPropagation();
       handler?.(e);
@@ -268,9 +269,16 @@ const ItemCard: React.FC<ItemCardProps> = ({
                     value={category} 
                     displayValue={CATEGORY_TRANSLATIONS[category] || category} 
                     onParameterSearch={onParameterSearch}
-                    valueIcon={<CategoryIcon />}
+                    valueIcon={<CategoryIcon className="w-6 h-6 text-base-content/80 flex-shrink-0" />}
                 />
-                <ParameterRow icon={<MapPinIcon />} label="Страна" field="country" value={country} onParameterSearch={onParameterSearch} />
+                <ParameterRow 
+                    icon={<MapPinIcon />} 
+                    label="Страна" 
+                    field="country" 
+                    value={country} 
+                    onParameterSearch={onParameterSearch} 
+                    valueIcon={<CountryDisplay countryName={country} flagUrl={country_flag_override_url} />}
+                />
                 {year && <ParameterRow icon={<CalendarDaysIcon />} label="Год" field="year" value={String(year)} onParameterSearch={onParameterSearch} />}
                 {material && MATERIAL_TRANSLATIONS[material] && <ParameterRow icon={<CubeTransparentIcon />} label="Материал" field="material" value={material} displayValue={MATERIAL_TRANSLATIONS[material]} onParameterSearch={onParameterSearch} />}
                 {mint && <ParameterRow icon={<BuildingLibraryIcon />} label="Двор" field="mint" value={mint} onParameterSearch={onParameterSearch} />}

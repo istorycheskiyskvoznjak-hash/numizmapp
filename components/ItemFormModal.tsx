@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { GoogleGenAI, Type } from "@google/genai";
 import { Album, Collectible } from '../types';
 import XCircleIcon from './icons/XCircleIcon';
+import CountrySelect from './CountrySelect';
 
 interface ItemFormModalProps {
   onClose: () => void;
@@ -55,6 +57,10 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
     const [albums, setAlbums] = useState<Album[]>([]);
     const [selectedAlbumId, setSelectedAlbumId] = useState<string>('');
     const [isImageRemoved, setIsImageRemoved] = useState(false);
+
+    // State for custom country
+    const [customCountryName, setCustomCountryName] = useState('');
+    const [customCountryFile, setCustomCountryFile] = useState<File | null>(null);
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -208,6 +214,32 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("User not found");
             
+            let finalCountryName = country;
+            let finalFlagUrl: string | null = isEditMode ? itemToEdit.country_flag_override_url || null : null;
+
+            // Handle custom country creation
+            if (customCountryName && customCountryFile) {
+                finalCountryName = customCountryName.trim();
+                
+                const flagPath = `${user.id}/custom-flags/${Date.now()}_${customCountryFile.name}`;
+                const { error: uploadError } = await supabase.storage.from('collectibles').upload(flagPath, customCountryFile);
+                if (uploadError) throw uploadError;
+                
+                const { data: { publicUrl } } = supabase.storage.from('collectibles').getPublicUrl(flagPath);
+                finalFlagUrl = publicUrl;
+
+                const { error: insertCountryError } = await supabase
+                    .from('custom_countries')
+                    .insert({ user_id: user.id, name: finalCountryName, flag_url: finalFlagUrl });
+
+                if (insertCountryError) throw new Error('Не удалось сохранить новую страну. Предмет не был добавлен.');
+
+            } else if (!customCountryName) {
+                // If a standard country was re-selected, clear any old custom flag URL
+                finalFlagUrl = null;
+            }
+
+
             let imageUrl: string | null = itemToEdit?.image_url || null;
 
             if (isImageRemoved && itemToEdit?.image_url) {
@@ -247,7 +279,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             const itemData = {
                 name: name.trim(),
                 category,
-                country: country.trim(),
+                country: finalCountryName,
                 year: parseInt(year) || new Date().getFullYear(),
                 description: description.trim(),
                 image_url: imageUrl,
@@ -256,6 +288,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                 rarity: rarity === '' ? null : rarity,
                 material: material === '' ? null : material,
                 mint: mint.trim() === '' ? null : mint.trim(),
+                country_flag_override_url: finalFlagUrl,
             };
 
             if (isEditMode) {
@@ -300,7 +333,14 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                                     <option value="banknote">Банкнота</option>
                                 </select>
                            </div>
-                           <InputField label="Страна" id="country" type="text" value={country} onChange={e => setCountry(e.target.value)} required placeholder="напр., Римская империя"/>
+                           <CountrySelect 
+                                value={country}
+                                onChange={setCountry}
+                                onCustomChange={(name, file) => {
+                                    setCustomCountryName(name);
+                                    setCustomCountryFile(file);
+                                }}
+                           />
                            <InputField label="Год" id="year" type="number" value={year} onChange={e => setYear(e.target.value)} required placeholder="напр., 112"/>
                            <div className="grid grid-cols-2 gap-4">
                                 <div>

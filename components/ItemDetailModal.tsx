@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Collectible, Comment, Album } from '../types';
 import { supabase } from '../supabaseClient';
@@ -8,6 +9,7 @@ import SendIcon from './icons/SendIcon';
 import MessagesIcon from './icons/MessagesIcon';
 import ImageIcon from './icons/ImageIcon';
 import EditIcon from './icons/EditIcon';
+import CountryDisplay from './CountryDisplay';
 
 interface ItemDetailModalProps {
   item: Collectible;
@@ -46,7 +48,6 @@ const ParameterButton: React.FC<{
     displayValue?: string;
     onClick?: (field: string, value: string, displayValue?: string) => void;
     className?: string;
-    // FIX: Added missing 'children' property to the component's props type to resolve multiple compilation errors.
     children: React.ReactNode;
 }> = ({ field, value, displayValue, onClick, className, children }) => {
     if (!onClick) {
@@ -305,11 +306,14 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
               {CATEGORY_TRANSLATIONS[item.category] || item.category}
             </ParameterButton>
             <h1 className="text-3xl font-bold">{item.name}</h1>
-            <p className="text-lg text-base-content/80 mt-1">
-                <ParameterButton field="country" value={item.country} onClick={onParameterSearch}>{item.country}</ParameterButton>,
-                {' '}
+            <div className="text-lg text-base-content/80 mt-1 flex items-center flex-wrap gap-x-2">
+                <ParameterButton field="country" value={item.country} onClick={onParameterSearch} className="inline-flex items-center gap-1.5">
+                    <CountryDisplay countryName={item.country} flagUrl={item.country_flag_override_url} />
+                    <span>{item.country}</span>
+                </ParameterButton>
+                <span>,</span>
                 <ParameterButton field="year" value={String(item.year)} onClick={onParameterSearch}>{item.year}</ParameterButton>
-            </p>
+            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t border-b border-base-300 py-3">
                 {item.material && MATERIAL_TRANSLATIONS[item.material] && (
                     <div><span className="font-bold text-base-content/70">Материал: </span><ParameterButton field="material" value={item.material} displayValue={MATERIAL_TRANSLATIONS[item.material]} onClick={onParameterSearch}>{MATERIAL_TRANSLATIONS[item.material]}</ParameterButton></div>
