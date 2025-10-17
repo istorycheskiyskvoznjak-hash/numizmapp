@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Page, Theme, Collectible, Message, Profile as ProfileData } from './types';
 import Layout from './components/Layout';
@@ -18,6 +17,7 @@ import GlobalSearchModal from './components/GlobalSearchModal';
 import GlobalParameterSearchModal from './components/GlobalParameterSearchModal';
 import PublicProfilePage from './components/pages/PublicProfilePage';
 import SpinnerIcon from './components/icons/SpinnerIcon';
+import PublicHeader from './components/PublicHeader';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -502,12 +502,20 @@ const App: React.FC = () => {
                 profileHandle={publicProfileHandle} 
                 theme={theme}
                 toggleTheme={toggleTheme}
+                showInstallButton={!!installPromptEvent}
+                onInstallClick={handleInstallClick}
             />
         </div>
       );
     }
     return (
       <div className={`min-h-screen bg-base-100 text-base-content font-sans ${theme}`}>
+          <PublicHeader
+            theme={theme}
+            toggleTheme={toggleTheme}
+            showInstallButton={!!installPromptEvent}
+            onInstallClick={handleInstallClick}
+          />
           <Auth />
       </div>
     );
