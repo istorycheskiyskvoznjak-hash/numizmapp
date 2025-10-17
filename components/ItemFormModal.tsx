@@ -53,6 +53,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
     const [rarity, setRarity] = useState<'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8' | 'R9' | 'R10' | ''>('');
     const [material, setMaterial] = useState('');
     const [mint, setMint] = useState('');
+    const [mintage, setMintage] = useState<string>('');
+    const [privateValue, setPrivateValue] = useState<string>('');
     const [file, setFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [albums, setAlbums] = useState<Album[]>([]);
@@ -87,6 +89,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             setRarity(itemToEdit.rarity as any || '');
             setMaterial(itemToEdit.material || '');
             setMint(itemToEdit.mint || '');
+            setMintage(String(itemToEdit.mintage || ''));
+            setPrivateValue(String(itemToEdit.private_value || ''));
             setSelectedAlbumId(itemToEdit.album_id || '');
             setImagePreview(itemToEdit.image_url || null);
         } else {
@@ -149,7 +153,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(file);
             
-            const prompt = `You are an expert numismatist and philatelist. Analyze this image of a collectible item. Provide information about it according to the specified JSON schema. All text fields in the response must be in Russian. For the 'material' field, use one of the following normalized values: 'gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'. If you cannot determine a field, make a reasonable guess or leave it empty (for strings) or null (for year).`;
+            const prompt = `You are an expert numismatist and philatelist. Analyze this image of a collectible item. Provide information about it according to the specified JSON schema, including mintage. All text fields in the response must be in Russian. For the 'material' field, use one of the following normalized values: 'gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'. If you cannot determine a field, make a reasonable guess or leave it empty (for strings) or null (for numbers).`;
 
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
@@ -170,9 +174,10 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                             description: { type: Type.STRING, description: "Краткое описание предмета на русском языке." },
                             category: { type: Type.STRING, description: "Категория: 'coin', 'stamp' или 'banknote'." },
                             material: { type: Type.STRING, description: "Normalized material: 'gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'." },
-                            mint: { type: Type.STRING, description: "Монетный двор (если это монета), на русском." }
+                            mint: { type: Type.STRING, description: "Монетный двор (если это монета), на русском." },
+                            mintage: { type: Type.NUMBER, description: "Тираж (количество выпущенных экземпляров)." },
                         },
-                        required: ['name', 'country', 'year', 'description', 'category', 'material', 'mint']
+                        required: ['name', 'country', 'year', 'description', 'category', 'material', 'mint', 'mintage']
                     }
                 }
             });
@@ -188,6 +193,7 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                 setYear(String(result.year || ''));
                 setDescription(result.description?.trim() || '');
                 setMint(result.mint?.trim() || '');
+                setMintage(String(result.mintage || ''));
                 if (result.material && ['gold', 'silver', 'copper', 'bronze', 'iron', 'other', 'paper'].includes(result.material)) {
                     setMaterial(result.material);
                 }
@@ -289,6 +295,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                 rarity: rarity === '' ? null : rarity,
                 material: material === '' ? null : material,
                 mint: mint.trim() === '' ? null : mint.trim(),
+                mintage: mintage ? parseInt(mintage) : null,
+                private_value: privateValue ? parseInt(privateValue) : null,
                 country_flag_override_url: finalFlagUrl,
             };
 
@@ -385,6 +393,10 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
                                 </select>
                             </div>
                             <InputField label="Монетный двор" id="mint" type="text" value={mint} onChange={e => setMint(e.target.value)} placeholder="напр., Санкт-Петербургский"/>
+                             <div className="grid grid-cols-2 gap-4">
+                                <InputField label="Тираж" id="mintage" type="number" value={mintage} onChange={e => setMintage(e.target.value)} placeholder="напр., 1000000"/>
+                                <InputField label="Личная оценка (в евро)" id="privateValue" type="number" value={privateValue} onChange={e => setPrivateValue(e.target.value)} placeholder="напр., 50 (видна только вам)"/>
+                            </div>
                         </div>
                         <div>
                              <label className="text-sm font-medium text-base-content/80">Изображение</label>

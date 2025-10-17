@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Page, Theme } from '../types';
 import Header from './Header';
@@ -13,8 +12,6 @@ interface LayoutProps {
   unreadMessageCount: number;
   onSearchOpen: () => void;
   onOpenAddItemModal: (initialAlbumId?: string | null) => void;
-  showInstallButton: boolean;
-  onInstallClick: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -25,9 +22,7 @@ const Layout: React.FC<LayoutProps> = ({
     children, 
     unreadMessageCount,
     onSearchOpen,
-    onOpenAddItemModal,
-    showInstallButton,
-    onInstallClick
+    onOpenAddItemModal
 }) => {
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
@@ -38,8 +33,6 @@ const Layout: React.FC<LayoutProps> = ({
         toggleTheme={toggleTheme}
         unreadMessageCount={unreadMessageCount}
         onSearchOpen={onSearchOpen}
-        showInstallButton={showInstallButton}
-        onInstallClick={onInstallClick}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}

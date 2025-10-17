@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Page, Theme } from '../types';
 import LogoIcon from './icons/LogoIcon';
@@ -13,7 +12,6 @@ import MessagesIcon from './icons/MessagesIcon';
 import UserCircleIcon from './icons/UserCircleIcon';
 import SearchIcon from './icons/SearchIcon';
 import CommandIcon from './icons/CommandIcon';
-import InstallIcon from './icons/InstallIcon';
 
 interface HeaderProps {
   currentPage: Page;
@@ -22,8 +20,6 @@ interface HeaderProps {
   toggleTheme: () => void;
   unreadMessageCount: number;
   onSearchOpen: () => void;
-  showInstallButton: boolean;
-  onInstallClick: () => void;
 }
 
 const pageTitles: Record<Page, string> = {
@@ -81,8 +77,6 @@ const Header: React.FC<HeaderProps> = ({
     toggleTheme, 
     unreadMessageCount,
     onSearchOpen,
-    showInstallButton,
-    onInstallClick
 }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -128,16 +122,6 @@ const Header: React.FC<HeaderProps> = ({
                     <CommandIcon className="w-3 h-3" /> K
                 </div>
             </button>
-             {showInstallButton && (
-                <button
-                    onClick={onInstallClick}
-                    title="Установить приложение"
-                    className="flex items-center justify-center shrink-0 w-10 h-10 md:w-auto md:px-4 rounded-full bg-primary text-primary-content font-semibold text-sm hover:bg-primary-focus transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-focus focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
-                >
-                    <InstallIcon className="w-5 h-5 md:w-4 md:h-4"/>
-                    <span className="hidden md:inline ml-2">Установить</span>
-                </button>
-            )}
              <button onClick={handleLogout} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100">
                 <LogoutIcon className="w-4 h-4" />
                 <span>Выйти</span>

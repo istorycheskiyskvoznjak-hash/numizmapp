@@ -14,6 +14,9 @@ import StampIcon from './icons/StampIcon';
 import BanknoteIcon from './icons/BanknoteIcon';
 import WantlistMatchIcon from './icons/WantlistMatchIcon';
 import CountryDisplay from './CountryDisplay';
+import CircleStackIcon from './icons/CircleStackIcon';
+import CurrencyRubleIcon from './icons/CurrencyRubleIcon';
+import PiggyBankIcon from './icons/PiggyBankIcon';
 
 interface ItemCardProps {
   item: Collectible;
@@ -157,7 +160,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
     stretch = false,
     size,
 }) => {
-  const { name, country, year, category, image_url, profiles, grade, rarity, material, mint, country_flag_override_url } = item;
+  const { name, country, year, category, image_url, profiles, grade, rarity, material, mint, mintage, private_value, country_flag_override_url } = item;
   
   const handleActionClick = (handler?: (e: React.MouseEvent) => void) => (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -284,6 +287,8 @@ const ItemCard: React.FC<ItemCardProps> = ({
                 {year && <ParameterRow icon={<CalendarDaysIcon />} label="Год" field="year" value={String(year)} onParameterSearch={onParameterSearch} />}
                 {material && MATERIAL_TRANSLATIONS[material] && <ParameterRow icon={<CubeTransparentIcon />} label="Материал" field="material" value={material} displayValue={MATERIAL_TRANSLATIONS[material]} onParameterSearch={onParameterSearch} />}
                 {mint && <ParameterRow icon={<BuildingLibraryIcon />} label="Двор" field="mint" value={mint} onParameterSearch={onParameterSearch} />}
+                {mintage != null && <ParameterRow icon={<CircleStackIcon />} label="Тираж" field="mintage" value={mintage.toLocaleString('ru-RU')} />}
+                {isOwner && private_value != null && <ParameterRow icon={<PiggyBankIcon />} label="Личная оценка" field="private_value" value={`${private_value.toLocaleString('ru-RU')} €`} />}
             </div>
         </div>
         

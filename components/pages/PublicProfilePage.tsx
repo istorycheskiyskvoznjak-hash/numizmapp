@@ -12,17 +12,9 @@ interface PublicProfilePageProps {
   profileHandle: string;
   theme: Theme;
   toggleTheme: () => void;
-  showInstallButton: boolean;
-  onInstallClick: () => void;
 }
 
-const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ 
-    profileHandle, 
-    theme, 
-    toggleTheme, 
-    showInstallButton, 
-    onInstallClick 
-}) => {
+const PublicProfilePage: React.FC<PublicProfilePageProps> = ({ profileHandle, theme, toggleTheme }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,13 +94,7 @@ const PublicProfilePage: React.FC<PublicProfilePageProps> = ({
 
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
-      <PublicHeader 
-        theme={theme} 
-        toggleTheme={toggleTheme} 
-        onLoginClick={handleLoginRedirect}
-        showInstallButton={showInstallButton}
-        onInstallClick={onInstallClick}
-      />
+      <PublicHeader theme={theme} toggleTheme={toggleTheme} onLoginClick={handleLoginRedirect} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {renderContent()}
       </main>

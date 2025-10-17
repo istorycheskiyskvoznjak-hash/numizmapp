@@ -1,4 +1,5 @@
 
+
 export type Theme = 'light' | 'dark';
 
 export type Page = 'Feed' | 'Collection' | 'Wantlist' | 'Messages' | 'Profile' | 'SubscriptionFeed' | 'PublicProfile' | 'PublicWantlist';
@@ -31,6 +32,8 @@ export interface Collectible {
   rarity?: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8' | 'R9' | 'R10' | null;
   material?: string | null;
   mint?: string | null;
+  mintage?: number | null;
+  private_value?: number | null;
   country_flag_override_url?: string | null;
 }
 

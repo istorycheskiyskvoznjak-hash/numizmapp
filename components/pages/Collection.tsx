@@ -13,6 +13,10 @@ import QrCodeIcon from '../icons/QrCodeIcon';
 import { Session } from '@supabase/supabase-js';
 import QRCodeModal from '../QRCodeModal';
 
+const calculateTotalPrivateValue = (items: Collectible[]) => {
+  return items.reduce((sum, item) => sum + (item.private_value || 0), 0);
+};
+
 interface CollectionProps {
   onItemClick: (item: Collectible) => void;
   dataVersion: number;
@@ -195,6 +199,7 @@ const Collection: React.FC<CollectionProps> = ({
 
   if (selectedAlbum) {
     const itemsInAlbum = collectibles.filter(item => item.album_id === selectedAlbum.id);
+    const totalPrivateValue = calculateTotalPrivateValue(itemsInAlbum);
     return (
         <>
             <div>
@@ -206,6 +211,7 @@ const Collection: React.FC<CollectionProps> = ({
                         <div>
                             <h1 className="text-3xl font-bold">{selectedAlbum.name}</h1>
                             {selectedAlbum.description && <p className="text-base-content/70 mt-1">{selectedAlbum.description}</p>}
+                            {totalPrivateValue > 0 && <p className="text-sm font-semibold text-primary mt-1">Общая личная оценка: {totalPrivateValue.toLocaleString('ru-RU')} €</p>}
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -263,11 +269,16 @@ const Collection: React.FC<CollectionProps> = ({
     return item.category === unassignedFilter;
   });
 
+  const totalCollectionValue = calculateTotalPrivateValue(collectibles);
+
   return (
     <>
       <div>
-        <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
-            <h1 className="text-3xl font-bold">Моя коллекция</h1>
+        <div className="flex flex-wrap justify-between items-start mb-8 gap-4">
+            <div>
+                <h1 className="text-3xl font-bold">Моя коллекция</h1>
+                {totalCollectionValue > 0 && <p className="text-sm font-semibold text-primary mt-1">Общая личная оценка: {totalCollectionValue.toLocaleString('ru-RU')} €</p>}
+            </div>
             <div className="flex items-center gap-2">
                 <button 
                     onClick={handleOpenCreateAlbumModal}

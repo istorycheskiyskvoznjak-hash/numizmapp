@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Collectible, Comment, Album } from '../types';
 import { supabase } from '../supabaseClient';
@@ -321,11 +322,17 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, session, onClos
                 {item.mint && (
                     <div><span className="font-bold text-base-content/70">Монетный двор: </span><ParameterButton field="mint" value={item.mint} onClick={onParameterSearch}>{item.mint}</ParameterButton></div>
                 )}
+                {item.mintage != null && (
+                    <div><span className="font-bold text-base-content/70">Тираж: </span><span>{item.mintage.toLocaleString('ru-RU')}</span></div>
+                )}
                  {item.grade && (
                     <div><span className="font-bold text-base-content/70">Состояние: </span><span>{item.grade}</span></div>
                 )}
                  {item.rarity && (
                     <div><span className="font-bold text-base-content/70">Редкость: </span><span>{item.rarity}</span></div>
+                )}
+                {isOwner && item.private_value != null && (
+                    <div className="col-span-2 sm:col-span-1"><span className="font-bold text-primary">Личная оценка: </span><span className="font-semibold text-primary">{item.private_value.toLocaleString('ru-RU')} €</span></div>
                 )}
             </div>
             <p className="mt-4 text-base-content/90">{item.description}</p>

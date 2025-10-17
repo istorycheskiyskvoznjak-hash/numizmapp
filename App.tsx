@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Page, Theme, Collectible, Message, Profile as ProfileData } from './types';
 import Layout from './components/Layout';
@@ -17,7 +19,8 @@ import GlobalSearchModal from './components/GlobalSearchModal';
 import GlobalParameterSearchModal from './components/GlobalParameterSearchModal';
 import PublicProfilePage from './components/pages/PublicProfilePage';
 import SpinnerIcon from './components/icons/SpinnerIcon';
-import PublicHeader from './components/PublicHeader';
+import AddItemChoiceModal from './components/AddItemChoiceModal';
+import BulkScanModal from './components/BulkScanModal';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
@@ -26,7 +29,7 @@ const App: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
-  const [addItemModalState, setAddItemModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
+  const [itemFormModalState, setItemFormModalState] = useState<{ isOpen: boolean; initialAlbumId?: string | null }>({ isOpen: false });
   const [editingItem, setEditingItem] = useState<Collectible | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
   const [initialMessageUserId, setInitialMessageUserId] = useState<string | null>(null);
@@ -38,7 +41,10 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [parameterSearchQuery, setParameterSearchQuery] = useState<{ field: string; value: any; displayValue?: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
+
+  // New state for add item flow
+  const [isAddItemChoiceModalOpen, setIsAddItemChoiceModalOpen] = useState(false);
+  const [isBulkScanModalOpen, setIsBulkScanModalOpen] = useState(false);
   
   const setCurrentPage = (page: Page) => {
     _setCurrentPage(oldPage => {
@@ -64,37 +70,6 @@ const App: React.FC = () => {
     root.classList.remove(theme === 'light' ? 'dark' : 'light');
     root.classList.add(theme);
   }, [theme]);
-
-  // PWA Install prompt handler
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (event: Event) => {
-        event.preventDefault(); // Prevent the mini-infobar from appearing on mobile
-        setInstallPromptEvent(event); // Save the event so it can be triggered later.
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallClick = () => {
-    if (!installPromptEvent) {
-        return;
-    }
-    installPromptEvent.prompt(); // Show the install prompt
-    // Wait for the user to respond to the prompt
-    installPromptEvent.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-        } else {
-            console.log('User dismissed the install prompt');
-        }
-        // We can only use the prompt once, so clear it.
-        setInstallPromptEvent(null);
-    });
-  };
 
   // Global search shortcut
   useEffect(() => {
@@ -265,17 +240,34 @@ const App: React.FC = () => {
     setDataVersion(v => v + 1);
   };
 
-  const handleOpenAddItemModal = (initialAlbumId?: string | null) => {
-    setAddItemModalState({ isOpen: true, initialAlbumId });
+  const handleOpenAddItemChoiceModal = (initialAlbumId?: string | null) => {
+    setItemFormModalState({ isOpen: false, initialAlbumId }); // Ensure initialAlbumId is stored for single item modal
+    setIsAddItemChoiceModalOpen(true);
+  };
+
+  const handleSelectAddItemSingle = () => {
+    setIsAddItemChoiceModalOpen(false);
+    setItemFormModalState(prev => ({ ...prev, isOpen: true }));
+  };
+
+  const handleSelectAddItemBulk = () => {
+    setIsAddItemChoiceModalOpen(false);
+    setIsBulkScanModalOpen(true);
   };
 
   const handleCloseItemFormModal = () => {
-    setAddItemModalState({ isOpen: false });
+    setItemFormModalState({ isOpen: false });
     setEditingItem(null);
   };
 
   const handleItemFormSuccess = () => {
     handleCloseItemFormModal();
+    setCurrentPage('Collection');
+    refreshData();
+  };
+
+  const handleBulkScanSuccess = () => {
+    setIsBulkScanModalOpen(false);
     setCurrentPage('Collection');
     refreshData();
   };
@@ -288,6 +280,7 @@ const App: React.FC = () => {
   const handleEditItemRequest = (item: Collectible) => {
     setSelectedItem(null); // Close detail view
     setEditingItem(item);   // Open form in edit mode
+    setItemFormModalState(prev => ({ ...prev, isOpen: true })); // Open form modal
   };
 
   const handleStartConversation = (userId: string) => {
@@ -415,7 +408,7 @@ const App: React.FC = () => {
             onParameterSearch={handleParameterSearch}
           />;
       case 'Collection':
-        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)} onParameterSearch={handleParameterSearch} onCheckWantlist={setCheckingItem} />;
+        return <Collection onItemClick={handleItemClick} dataVersion={dataVersion} refreshData={refreshData} openAddItemModal={handleOpenAddItemChoiceModal} onStartConversation={handleStartConversation} initialAlbumId={initialAlbumId} clearInitialAlbumId={() => setInitialAlbumId(null)} onParameterSearch={handleParameterSearch} onCheckWantlist={setCheckingItem} />;
       case 'Wantlist':
         return <Wantlist 
             session={session}
@@ -502,20 +495,12 @@ const App: React.FC = () => {
                 profileHandle={publicProfileHandle} 
                 theme={theme}
                 toggleTheme={toggleTheme}
-                showInstallButton={!!installPromptEvent}
-                onInstallClick={handleInstallClick}
             />
         </div>
       );
     }
     return (
       <div className={`min-h-screen bg-base-100 text-base-content font-sans ${theme}`}>
-          <PublicHeader
-            theme={theme}
-            toggleTheme={toggleTheme}
-            showInstallButton={!!installPromptEvent}
-            onInstallClick={handleInstallClick}
-          />
           <Auth />
       </div>
     );
@@ -530,9 +515,7 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme}
         unreadMessageCount={totalUnreadCount}
         onSearchOpen={() => setIsSearchOpen(true)}
-        onOpenAddItemModal={handleOpenAddItemModal}
-        showInstallButton={!!installPromptEvent}
-        onInstallClick={handleInstallClick}
+        onOpenAddItemModal={handleOpenAddItemChoiceModal}
       >
         {renderPage()}
       </Layout>
@@ -549,11 +532,11 @@ const App: React.FC = () => {
           isAdmin={isAdmin}
         />
       )}
-      {(addItemModalState.isOpen || editingItem) && (
+      {(itemFormModalState.isOpen || editingItem) && (
         <ItemFormModal
           onClose={handleCloseItemFormModal}
           onSuccess={handleItemFormSuccess}
-          initialAlbumId={addItemModalState.initialAlbumId}
+          initialAlbumId={itemFormModalState.initialAlbumId}
           itemToEdit={editingItem}
         />
       )}
@@ -582,6 +565,19 @@ const App: React.FC = () => {
             onItemClick={handleItemClick}
             onViewProfile={handleViewProfile}
             onParameterSearch={handleParameterSearch}
+        />
+      )}
+      {isAddItemChoiceModalOpen && (
+        <AddItemChoiceModal 
+          onClose={() => setIsAddItemChoiceModalOpen(false)}
+          onSelectSingle={handleSelectAddItemSingle}
+          onSelectBulk={handleSelectAddItemBulk}
+        />
+      )}
+      {isBulkScanModalOpen && (
+        <BulkScanModal
+          onClose={() => setIsBulkScanModalOpen(false)}
+          onSuccess={handleBulkScanSuccess}
         />
       )}
     </>
