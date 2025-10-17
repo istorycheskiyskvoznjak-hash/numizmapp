@@ -87,10 +87,6 @@ const CountrySelect: React.FC<CountrySelectProps> = ({ value, onChange, onCustom
   }, [allCountries, searchTerm]);
   
   const selectedCountry = useMemo(() => {
-    // FIX: Modified the object returned when creating a new custom country to match the `CountryOption` type.
-    // This resolves TypeScript errors related to the `flagData` property, which was previously missing.
-    // The change ensures consistent data structure for selected countries, whether they are predefined, saved custom ones,
-    // or a new one in the process of being created.
     if (showCustomForm) {
         return {
             name: customName || 'Новая страна...',
