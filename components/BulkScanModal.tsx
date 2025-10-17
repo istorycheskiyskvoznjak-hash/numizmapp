@@ -94,6 +94,15 @@ const BulkScanModal: React.FC<BulkScanModalProps> = ({ onClose, onSuccess }) => 
         if (!imageFile) return;
         setStep('analyzing');
         setError(null);
+
+        if (!process.env.API_KEY) {
+            setError("API-ключ Gemini не настроен. Проверьте конфигурацию сервера.");
+            setStep('capture');
+            setImageFile(null);
+            setImageSrc(null);
+            return;
+        }
+
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(imageFile);

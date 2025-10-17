@@ -148,6 +148,13 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ onClose, onSuccess, itemT
 
         setIsAnalyzing(true);
         setAiError(null);
+
+        if (!process.env.API_KEY) {
+            setAiError("API-ключ Gemini не настроен. Проверьте конфигурацию сервера.");
+            setIsAnalyzing(false);
+            return;
+        }
+
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
             const base64Data = await fileToBase64(file);
