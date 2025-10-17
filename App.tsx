@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [parameterSearchQuery, setParameterSearchQuery] = useState<{ field: string; value: any; displayValue?: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
   
   const setCurrentPage = (page: Page) => {
     _setCurrentPage(oldPage => {
@@ -63,6 +64,37 @@ const App: React.FC = () => {
     root.classList.remove(theme === 'light' ? 'dark' : 'light');
     root.classList.add(theme);
   }, [theme]);
+
+  // PWA Install prompt handler
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+        event.preventDefault(); // Prevent the mini-infobar from appearing on mobile
+        setInstallPromptEvent(event); // Save the event so it can be triggered later.
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = () => {
+    if (!installPromptEvent) {
+        return;
+    }
+    installPromptEvent.prompt(); // Show the install prompt
+    // Wait for the user to respond to the prompt
+    installPromptEvent.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+        } else {
+            console.log('User dismissed the install prompt');
+        }
+        // We can only use the prompt once, so clear it.
+        setInstallPromptEvent(null);
+    });
+  };
 
   // Global search shortcut
   useEffect(() => {
@@ -491,6 +523,8 @@ const App: React.FC = () => {
         unreadMessageCount={totalUnreadCount}
         onSearchOpen={() => setIsSearchOpen(true)}
         onOpenAddItemModal={handleOpenAddItemModal}
+        showInstallButton={!!installPromptEvent}
+        onInstallClick={handleInstallClick}
       >
         {renderPage()}
       </Layout>
