@@ -106,6 +106,15 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
+             {/* Mobile Search */}
+             <button
+                onClick={onSearchOpen}
+                className="flex md:hidden items-center justify-center w-10 h-10 rounded-full bg-base-200 hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100"
+                aria-label="Поиск"
+              >
+                <SearchIcon className="w-5 h-5" />
+              </button>
+              {/* Desktop Search */}
              <button onClick={onSearchOpen} className="hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-base-200 hover:bg-base-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-base-100">
                 <SearchIcon className="w-4 h-4" />
                 <span>Поиск</span>

@@ -21,7 +21,7 @@ import SpinnerIcon from './components/icons/SpinnerIcon';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>('dark');
-  const [currentPage, _setCurrentPage] = useState<Page>('Collection');
+  const [currentPage, _setCurrentPage] = useState<Page>('Feed');
   const [previousPage, setPreviousPage] = useState<Page>('Feed');
   const [selectedItem, setSelectedItem] = useState<Collectible | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -38,9 +38,7 @@ const App: React.FC = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [parameterSearchQuery, setParameterSearchQuery] = useState<{ field: string; value: any; displayValue?: string } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const isMounted = useRef(true);
-
-  // New navigation handler to centralize page changes and state cleanup
+  
   const setCurrentPage = (page: Page) => {
     _setCurrentPage(oldPage => {
         if (oldPage !== page && oldPage !== 'PublicProfile' && oldPage !== 'Profile') {
@@ -51,11 +49,7 @@ const App: React.FC = () => {
 
     if (page !== 'PublicProfile') {
       setViewingProfileId(null);
-      if (window.location.search.includes('profileId')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
     }
-    // When navigating away from a specific collection album view, clear it
     if (page !== 'Collection') {
       setInitialAlbumId(null);
     }
@@ -63,14 +57,6 @@ const App: React.FC = () => {
       setInitialWantlistListId(null);
     }
   };
-
-
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -90,67 +76,49 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const fetchInitialSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setSessionLoading(false);
+    };
+
+    fetchInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
-    setSessionLoading(true);
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      try {
-        if (isMounted.current) {
-          setSession(session);
-          if (session) {
-            const { data: profile, error } = await supabase
+      if (!session) {
+          setIsAdmin(false);
+          setUnreadMessages({});
+          return;
+      }
+
+      const checkAdminStatus = async () => {
+          const { data: profile, error } = await supabase
               .from('profiles')
               .select('is_admin')
               .eq('id', session.user.id)
               .single();
-            
-            if (error) throw error;
 
-            setIsAdmin(profile?.is_admin || false);
-          }
-        }
-      } catch (error) {
-          console.error("Error getting user profile on initial load:", error);
-      } finally {
-        if (isMounted.current) {
-          setSessionLoading(false);
-        }
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      try {
-          if (isMounted.current) {
-            setSession(session);
-            if (!session) {
-              setUnreadMessages({});
+          if (error) {
+              console.warn("Could not fetch user profile details. Defaulting to non-admin.", error.message);
               setIsAdmin(false);
-            } else {
-              const { data: profile, error } = await supabase
-                .from('profiles')
-                .select('is_admin')
-                .eq('id', session.user.id)
-                .single();
-
-              if (error) throw error;
-
+          } else {
               setIsAdmin(profile?.is_admin || false);
-            }
           }
-      } catch (error) {
-          console.error("Error getting user profile on auth change:", error);
-      } finally {
-        // Also ensure loading is false after an auth change, which might be the first "load" for the user.
-        if (isMounted.current) {
-            setSessionLoading(false);
-        }
-      }
-    });
+      };
+      
+      checkAdminStatus();
+  }, [session]);
 
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Handles deep linking from URLs with profileId or albumId
   useEffect(() => {
@@ -170,23 +138,17 @@ const App: React.FC = () => {
         
         if (error) {
           console.error("Error fetching public profile ID:", error);
-        } else if (isMounted.current && data) {
+        } else if (data) {
           if (data.id === session.user.id) {
             setCurrentPage('Profile');
           } else {
             setViewingProfileId(data.id);
             _setCurrentPage('PublicProfile'); // Use direct setter to avoid cleanup
           }
-          // Clear URL param after navigation
-          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } else if (albumIdFromUrl) {
-         if (isMounted.current) {
-            setInitialAlbumId(albumIdFromUrl);
-            setCurrentPage('Collection');
-            // Clear URL param after navigation
-            window.history.replaceState({}, document.title, window.location.pathname);
-         }
+          setInitialAlbumId(albumIdFromUrl);
+          setCurrentPage('Collection');
       }
     };
     handleUrlParams();
@@ -211,9 +173,7 @@ const App: React.FC = () => {
                 acc[msg.sender_id] = (acc[msg.sender_id] || 0) + 1;
                 return acc;
             }, {});
-            if (isMounted.current) {
-                setUnreadMessages(counts);
-            }
+            setUnreadMessages(counts);
         }
     };
     
@@ -245,7 +205,6 @@ const App: React.FC = () => {
 
 
   const totalUnreadCount = useMemo(() => {
-    // FIX: Added explicit types to `sum` and `count` to resolve TypeScript error.
     return Object.values(unreadMessages).reduce((sum: number, count: number) => sum + count, 0);
   }, [unreadMessages]);
   
@@ -328,7 +287,6 @@ const App: React.FC = () => {
     setParameterSearchQuery({ field, value, displayValue });
     setSelectedItem(null); // Close any open item details
   };
-
 
   const toggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
@@ -532,6 +490,7 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme}
         unreadMessageCount={totalUnreadCount}
         onSearchOpen={() => setIsSearchOpen(true)}
+        onOpenAddItemModal={handleOpenAddItemModal}
       >
         {renderPage()}
       </Layout>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Collectible } from '../types';
 import ImageIcon from './icons/ImageIcon';
@@ -217,7 +216,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
                      <button
                         onClick={handleActionClick(() => onSave(item.id, !!isSaved))}
                         title={isSaved ? "Удалить из избранного" : "Сохранить в избранное"}
-                        className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
+                        className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200
                           ${isSaved 
                             ? 'bg-primary text-primary-content shadow' 
                             : 'bg-black/40 backdrop-blur-sm border border-white/20 text-white/80 hover:bg-black/60 hover:text-white opacity-0 group-hover:opacity-100'
@@ -227,7 +226,7 @@ const ItemCard: React.FC<ItemCardProps> = ({
                     </button>
                 )}
                  {!isOwner && isWantlistMatch && (
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-content shadow" title="Совпадение с вашим вишлистом!">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-content shadow" title="Совпадение с вашим вишлистом!">
                         <WantlistMatchIcon className="w-5 h-5" />
                     </div>
                 )}

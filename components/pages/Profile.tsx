@@ -20,6 +20,7 @@ import WantlistFormModal from '../WantlistFormModal';
 import PlusIcon from '../icons/PlusIcon';
 import WantlistListCard from '../WantlistListCard';
 import BookmarkIcon from '../icons/BookmarkIcon';
+import LogoutIcon from '../icons/LogoutIcon';
 
 
 interface ProfileProps {
@@ -275,6 +276,10 @@ const Profile: React.FC<ProfileProps> = ({
             setFollowers(f => f + 1);
         }
     };
+    
+    const handleLogout = async () => {
+      await supabase.auth.signOut();
+    };
 
     if (loading) {
         return <div>Загрузка профиля...</div>;
@@ -341,6 +346,9 @@ const Profile: React.FC<ProfileProps> = ({
                                             className="!bg-white/40 !text-black hover:!bg-white/60"
                                         >
                                             QR-код
+                                        </ActionButton>
+                                        <ActionButton onClick={handleLogout} icon={<LogoutIcon className="w-4 h-4" />} className="md:hidden">
+                                            Выйти
                                         </ActionButton>
                                     </>
                                 ) : (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Page, Theme } from '../types';
 import Header from './Header';
+import BottomNavBar from './BottomNavBar';
 
 interface LayoutProps {
   currentPage: Page;
@@ -10,6 +11,7 @@ interface LayoutProps {
   children: React.ReactNode;
   unreadMessageCount: number;
   onSearchOpen: () => void;
+  onOpenAddItemModal: (initialAlbumId?: string | null) => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -19,7 +21,8 @@ const Layout: React.FC<LayoutProps> = ({
     toggleTheme, 
     children, 
     unreadMessageCount,
-    onSearchOpen
+    onSearchOpen,
+    onOpenAddItemModal
 }) => {
   return (
     <div className="min-h-screen bg-base-100 text-base-content font-sans">
@@ -34,6 +37,12 @@ const Layout: React.FC<LayoutProps> = ({
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-24">
         {children}
       </main>
+      <BottomNavBar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        unreadMessageCount={unreadMessageCount}
+        onOpenAddItemModal={onOpenAddItemModal}
+      />
     </div>
   );
 };
