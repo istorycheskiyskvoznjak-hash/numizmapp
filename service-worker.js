@@ -3,10 +3,10 @@ const DYNAMIC_CACHE_NAME = 'numizmapp-dynamic-cache-v2';
 const API_CACHE_NAME = 'numizmapp-api-cache-v2';
 
 const APP_SHELL_URLS = [
-  '/',
-  '/index.html',
-  '/vite.svg',
-  '/manifest.json'
+  './',
+  'index.html',
+  'vite.svg',
+  'manifest.json'
 ];
 
 const CDN_URLS = [
@@ -103,6 +103,10 @@ self.addEventListener('fetch', event => {
       });
     }).catch(error => {
         console.error('[Service Worker] Fetch failed.', error);
+        // Fallback to the cached index.html for navigation requests
+        if (event.request.mode === 'navigate') {
+            return caches.match('index.html');
+        }
     })
   );
 });
